@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101b2d">
+  <meta name="description" content="FALCON: a transparent claim-review and misinformation research prototype.">
+  <title>FALCON · Claim Review Lab</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="analysis.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header wrap">
+    <a class="brand" href="#top" aria-label="FALCON home"><span class="brand-icon">F</span><span>FALCON <small>research lab</small></span></a>
+    <nav aria-label="Main navigation"><a href="#analyze">Analyze</a><a href="#dashboard">Dashboard</a><a href="#method">Method</a></nav>
+    <a class="source-link" href="https://github.com/beingbalaji/FALCON">View source ↗</a>
+  </header>
+  <main id="main">
+    <section id="top" class="hero wrap">
+      <div class="eyebrow">FEDERATED ANALYSIS AND LINGUISTIC CORRELATION NETWORK</div>
+      <h1>Pause the spread.<br><em>Inspect the claim.</em></h1>
+      <p class="lead">A working reconstruction of Balaji R’s FALCON project concept. Explore language signals, organize a manual fact check, and track topics in your own review session.</p>
+      <div class="hero-actions"><a class="primary" href="#analyze">Start a review <span aria-hidden="true">→</span></a><a class="secondary" href="#method">How this works</a></div>
+      <div class="notice"><strong>Research prototype.</strong> Language patterns cannot determine whether a claim is true. No trained model, live feed, automatic fact-check, or federated training is included in this reconstruction.</div>
+    </section>
+
+    <section id="analyze" class="workspace wrap" aria-labelledby="analyze-title">
+      <div class="section-heading"><div><span class="eyebrow">01 / INVESTIGATE</span><h2 id="analyze-title">Review a piece of text</h2><p>Paste a headline, post, or short article. Analysis runs on your device; the public demo does not send your text to a server.</p></div><span class="chip">No sign-in · No API key</span></div>
+      <div class="columns">
+        <section class="panel input-panel" aria-labelledby="input-title">
+          <div class="panel-head"><h3 id="input-title">Content to examine</h3><span class="muted" id="length">0 / 10,000</span></div>
+          <label for="claim" class="visually-hidden">News or social media text</label>
+          <textarea id="claim" maxlength="10000" placeholder="Paste a claim or article excerpt here…" spellcheck="true"></textarea>
+          <p class="micro">Want to try it first? Use an illustrative sample.</p>
+          <div class="sample-row"><button type="button" class="sample" data-example="urgent">Viral-style example</button><button type="button" class="sample" data-example="neutral">Neutral-style example</button></div>
+          <div class="input-footer"><span class="muted">Minimum 20 characters</span><button type="button" id="analyzeBtn" class="primary">Inspect signals <span aria-hidden="true">→</span></button></div>
+          <p id="error" class="error" role="alert" hidden></p>
+        </section>
+        <aside class="panel guide-panel" aria-labelledby="guide-title"><span class="eyebrow">THE REVIEW PROCESS</span><h3 id="guide-title">Three questions to ask</h3><ol class="steps"><li><span>01</span><div><strong>Who published it?</strong><p>Look for a named author, a source, and the original date.</p></div></li><li><span>02</span><div><strong>What evidence is shown?</strong><p>Find the primary study, statement, document, or data behind the claim.</p></div></li><li><span>03</span><div><strong>Who else confirms it?</strong><p>Check independent reporting and corrections before sharing.</p></div></li></ol><p class="guide-foot">A polished writing style is not proof. An emotional style is not proof of falsehood.</p></aside>
+      </div>
+      <section id="result" class="result panel" aria-live="polite" hidden>
+        <div class="result-header"><div><span class="eyebrow">SIGNAL REPORT</span><h3>Review priority: <span id="priority"></span></h3><p id="priorityNote"></p></div><div class="meter" role="img" aria-label="Review priority score"><strong id="score">0</strong><span>/ 100</span></div></div>
+        <div class="meter-track"><span id="meterFill"></span></div>
+        <p class="disclaimer" id="disclaimer"></p>
+        <div class="result-grid"><div><h4>Detected language signals</h4><ul id="signals" class="signals"></ul></div><div><h4>Content snapshot</h4><dl class="stats"><div><dt>Topic</dt><dd id="topic"></dd></div><div><dt>Words</dt><dd id="words"></dd></div><div><dt>Sentences</dt><dd id="sentences"></dd></div></dl><h4>Repeated themes</h4><div id="keywords" class="tags"></div></div></div>
+        <fieldset class="checklist"><legend>Manual verification checklist</legend><p>These notes are for you; they do not change the score or verify the claim.</p><label><input type="checkbox"> I located the original source and date</label><label><input type="checkbox"> I found primary evidence for the central claim</label><label><input type="checkbox"> I checked an independent source or fact checker</label></fieldset>
+      </section>
+    </section>
+
+    <section id="dashboard" class="dashboard wrap" aria-labelledby="dashboard-title"><div class="section-heading"><div><span class="eyebrow">02 / OBSERVE</span><h2 id="dashboard-title">Your review dashboard</h2><p>Only topic, priority, counts, and time are saved in this browser. Your submitted text is not stored.</p></div><div class="dash-actions"><button type="button" id="exportBtn" class="secondary">Export JSON</button><button type="button" id="clearBtn" class="text-button">Clear history</button></div></div><div class="dash-grid"><div class="panel metric-card"><span>Reviews in this browser</span><strong id="total">0</strong><small>Latest 40 summaries</small></div><div class="panel metric-card"><span>High review priority</span><strong id="highCount">0</strong><small>Style-based, not truth verdicts</small></div><div class="panel topics-panel"><h3>Topic distribution</h3><div id="topics" class="topic-chart"><p class="muted">Analyze a sample to see topics.</p></div></div></div><div class="panel recent-panel"><div class="panel-head"><h3>Recent reviews</h3><span class="muted">Stored on this device</span></div><div id="recent" class="recent-list"><p class="muted">No reviews yet.</p></div></div></section>
+
+    <section id="method" class="method wrap" aria-labelledby="method-title"><div><span class="eyebrow">03 / UNDERSTAND</span><h2 id="method-title">What the score means</h2><p>FALCON v1 looks for transparent language cues: sensational phrasing, requests to share urgently, sweeping claims, vague authority, and emphatic formatting. Each detected cue adds a fixed number of points to a <strong>review priority</strong> score. The starting score is 10 and the maximum is 90.</p><p>Topic detection uses a short keyword list. The dashboard groups only items you analyzed in this browser. A low score means fewer matched cues; it does <strong>not</strong> mean a claim is true. The research write-up also proposes BERT classification, external fact checks, live streams, and federated learning. Those components require the missing original code, trained model, data, and credentials and are not simulated as completed features.</p><a href="https://github.com/beingbalaji/FALCON#method-and-limitations">Read the method and limitations ↗</a></div><div class="method-card"><span class="eyebrow">SOURCE MATERIALS</span><h3>Reconstructed from three provided files</h3><p>A research write-up, a backend implementation guide, and an HTML prototype informed this working app. The HTML prototype’s browser token placeholder has been removed.</p><div class="rule"></div><p><strong>Private by default:</strong> text stays in your browser on the hosted demo. The optional local Node API processes requests in memory and does not save them.</p></div></section>
+  </main>
+  <footer class="wrap"><span>FALCON · Balaji R · Reconstructed research prototype</span><a href="https://github.com/beingbalaji">GitHub profile ↗</a></footer>
+</body>
+</html>

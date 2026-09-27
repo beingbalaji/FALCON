@@ -1,0 +1,12 @@
+{
+  "name": "falcon-review-lab",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Transparent misinformation review prototype reconstructed from FALCON project documents",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test tests.js"
+  },
+  "engines": {"node": ">=18"},
+  "license": "UNLICENSED"
+}
