@@ -1,7 +1,8 @@
 (function () {
   'use strict';
   const $ = id => document.getElementById(id);
-  const KEY = 'falcon-review-summaries-v1';
+  const KEY = 'falcon-review-summaries-v2';
+  const LEGACY_KEY = 'falcon-review-summaries-v1';
   const EXAMPLES = {
     urgent: 'BREAKING!!! You won’t believe this shocking secret truth. Experts say a miracle cure works for everyone. Share this now before it is deleted!',
     neutral: 'The city council published its meeting agenda on Tuesday. The document lists a discussion of bus routes and a vote scheduled for Friday.'
@@ -10,12 +11,17 @@
 
   function loadHistory() {
     try {
-      const saved = JSON.parse(localStorage.getItem(KEY) || '[]');
-      return Array.isArray(saved) ? saved.filter(x => x && typeof x.topic === 'string' && typeof x.reviewScore === 'number').slice(0, 40) : [];
+      const saved = JSON.parse(localStorage.getItem(KEY) || localStorage.getItem(LEGACY_KEY) || '[]');
+      return Array.isArray(saved) ? saved.filter(x => x && typeof x.topic === 'string')
+        .slice(0, 40).map(x => ({at: x.at, topic: x.topic, words: x.words,
+          cueCount: Number.isInteger(x.cueCount) ? x.cueCount : null})) : [];
     } catch { return []; }
   }
   function saveHistory() {
-    try { localStorage.setItem(KEY, JSON.stringify(history)); } catch { /* Private browsing may block storage. */ }
+    try {
+      localStorage.setItem(KEY, JSON.stringify(history));
+      localStorage.removeItem(LEGACY_KEY);
+    } catch { /* Private browsing may block storage. */ }
   }
   function textElement(tag, content, className) {
     const element = document.createElement(tag);
@@ -29,12 +35,9 @@
   }
   function renderReport(report) {
     $('result').hidden = false;
-    $('priority').textContent = report.priority;
-    $('priority').style.color = report.priority === 'High' ? 'var(--red)' : report.priority === 'Medium' ? 'var(--amber)' : 'var(--mint)';
-    $('priorityNote').textContent = report.priority === 'High' ? 'Several writing cues warrant careful source review.' : report.priority === 'Medium' ? 'Some writing cues are worth checking.' : 'Few listed writing cues were found; verification is still needed.';
-    $('score').textContent = report.reviewScore;
-    $('meterFill').style.width = `${report.reviewScore}%`;
-    $('meterFill').style.background = report.priority === 'High' ? 'var(--red)' : report.priority === 'Medium' ? 'var(--amber)' : 'var(--mint)';
+    $('verificationStatus').textContent = report.verificationStatus;
+    $('cueCount').textContent = report.cueCount;
+    $('cueNote').textContent = report.cueCount ? `${report.cueCount} writing pattern${report.cueCount === 1 ? '' : 's'} matched. These are prompts to investigate, not evidence of falsehood.` : 'No listed writing patterns matched. This does not imply the claim is true.';
     $('disclaimer').textContent = report.disclaimer;
     $('topic').textContent = report.topic;
     $('words').textContent = report.metrics.words;
@@ -55,7 +58,7 @@
   }
   function renderDashboard() {
     $('total').textContent = history.length;
-    $('highCount').textContent = history.filter(x => x.priority === 'High').length;
+    $('cueReviews').textContent = history.filter(x => x.cueCount > 0).length;
     const chart = $('topics'); chart.replaceChildren();
     const counts = FalconAnalysis.topicCounts(history);
     if (!counts.length) chart.append(textElement('p', 'Analyze a sample to see topics.', 'muted'));
@@ -71,7 +74,7 @@
       const row = document.createElement('div'); row.className = 'recent-item';
       const info = textElement('span', `${entry.topic} · ${entry.words} words`);
       const time = textElement('time', new Date(entry.at).toLocaleString()); time.dateTime = entry.at;
-      const badge = textElement('span', `${entry.priority} · ${entry.reviewScore}`, `badge ${entry.priority.toLowerCase()}`);
+      const badge = textElement('span', entry.cueCount === null ? 'Earlier review · Unverified' : `${entry.cueCount} cues · Unverified`, 'badge');
       row.append(info, time, badge); recent.append(row);
     }
   }
@@ -85,12 +88,12 @@
     try {
       const report = FalconAnalysis.analyzeText($('claim').value);
       setError(''); renderReport(report);
-      history.unshift({at: new Date().toISOString(), topic: report.topic, priority: report.priority, reviewScore: report.reviewScore, words: report.metrics.words});
+      history.unshift({at: new Date().toISOString(), topic: report.topic, cueCount: report.cueCount, words: report.metrics.words});
       history = history.slice(0, 40); saveHistory(); renderDashboard();
     } catch (error) { setError(error.message); }
   });
   $('exportBtn').addEventListener('click', () => {
-    const blob = new Blob([JSON.stringify({project: 'FALCON', method: 'language signals v1', note: 'Review priorities are not truth verdicts.', summaries: history}, null, 2)], {type: 'application/json'});
+    const blob = new Blob([JSON.stringify({project: 'FALCON', method: 'language signals v2', note: 'All entries are unverified. Matched writing cues are not truth verdicts.', summaries: history}, null, 2)], {type: 'application/json'});
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a'); link.href = url; link.download = 'falcon-review-summaries.json'; link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);

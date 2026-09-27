@@ -16,16 +16,16 @@
     ['Climate', /\b(?:climate|weather|flood|heatwave|emission|environment|rainfall)\b/gi]
   ];
   const RULES = [
-    { id: 'sensational', label: 'Sensational phrasing', weight: 16,
+    { id: 'sensational', label: 'Sensational phrasing',
       detail: 'Attention-grabbing language can make a claim feel urgent without adding evidence.',
       pattern: /\b(?:shocking|unbelievable|miracle|secret truth|you won.t believe|mind.blown|exposed)\b/gi },
-    { id: 'urgency', label: 'Urgent sharing request', weight: 18,
+    { id: 'urgency', label: 'Urgent sharing request',
       detail: 'Requests to spread a claim quickly are a reason to pause and check the source.',
       pattern: /\b(?:share (?:this|now|immediately)|forward (?:this|now)|before (?:it.s|it is) deleted|spread the word)\b/gi },
-    { id: 'absolute', label: 'Absolute or sweeping claim', weight: 13,
+    { id: 'absolute', label: 'Absolute or sweeping claim',
       detail: 'Broad claims need specific, independent supporting evidence.',
       pattern: /\b(?:everyone knows|no one wants you to know|100% guaranteed|always works|never fails|all (?:doctors|scientists|experts) agree)\b/gi },
-    { id: 'authority', label: 'Unspecified authority', weight: 12,
+    { id: 'authority', label: 'Unspecified authority',
       detail: 'A named study or expert can be checked; vague attribution is harder to verify.',
       pattern: /\b(?:experts say|scientists say|a study proves|sources confirm|research shows)\b/gi }
   ];
@@ -42,21 +42,19 @@
     const signals = [];
     for (const rule of RULES) {
       const matches = Array.from(text.matchAll(rule.pattern)).slice(0, 3).map(m => m[0]);
-      if (matches.length) signals.push({id: rule.id, label: rule.label, detail: rule.detail, weight: rule.weight, examples: matches});
+      if (matches.length) signals.push({id: rule.id, label: rule.label, detail: rule.detail, examples: matches});
     }
     const exclamations = (text.match(/!/g) || []).length;
     if (exclamations >= 3 || /!{2,}/.test(text)) {
-      signals.push({id: 'punctuation', label: 'Emphatic punctuation', weight: 9,
+      signals.push({id: 'punctuation', label: 'Emphatic punctuation',
         detail: 'Repeated exclamation marks can add emotional pressure, not evidence.', examples: [`${exclamations} exclamation marks`]});
     }
     const letterWords = words.filter(w => /\p{L}/u.test(w));
     const caps = letterWords.filter(w => w.length >= 4 && w === w.toUpperCase()).length;
     if (letterWords.length >= 5 && caps / letterWords.length >= 0.18) {
-      signals.push({id: 'capitalization', label: 'Frequent capital letters', weight: 8,
+      signals.push({id: 'capitalization', label: 'Frequent capital letters',
         detail: 'Many all-capital words suggest emphasis; they do not establish truth.', examples: [`${caps} all-capital words`]});
     }
-    const score = Math.min(90, 10 + signals.reduce((sum, s) => sum + s.weight, 0));
-    const priority = score >= 48 ? 'High' : score >= 25 ? 'Medium' : 'Low';
     const topicCounts = TOPICS.map(([name, pattern]) => ({name, count: (text.match(pattern) || []).length}));
     topicCounts.sort((a, b) => b.count - a.count);
     const topic = topicCounts[0].count ? topicCounts[0].name : 'General';
@@ -68,10 +66,11 @@
     }
     const keywords = [...frequency].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 6).map(([word]) => word);
     return {
-      priority, reviewScore: score, topic, keywords, signals,
+      verificationStatus: 'Unverified', factualVerdict: null,
+      cueCount: signals.length, topic, keywords, signals,
       metrics: {words: words.length, sentences, exclamations, allCapsWords: caps},
-      method: 'Transparent language signals v1',
-      disclaimer: 'This score is a review priority based on writing patterns. It is not a truth verdict, model confidence, or fact-check result.'
+      method: 'Transparent language signals v2',
+      disclaimer: 'No sources were checked. Writing style cannot establish whether a claim is true or false; verify it against current primary evidence.'
     };
   }
 
