@@ -39,7 +39,7 @@ test('local server serves the app and analysis API without secrets or external d
   assert.equal(html.status, 200);
   const markup = await html.text();
   assert.match(markup, /FALCON · Claim Review Lab/);
-  assert.match(markup, /app\.js\?v=4/);
+  assert.match(markup, /app\.js\?v=5/);
   const css = await fetch(base + '/style.css');
   assert.equal(css.status, 200);
   const response = await fetch(base + '/api/analyze', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({text: 'This city news article discusses a scheduled vote by the council on Friday.'})});
@@ -109,7 +109,7 @@ test('structured facts reject historical, future, disputed, and uncertain record
   assert.equal(F.currentStatements([statement('Q1',{rank:'deprecated'})],now).length,0);
 });
 test('structured checks compare resolved IDs, handle negation, and abstain on ambiguity',async()=>{
-  const entities={Q1:{id:'Q1',labels:{en:{value:'Australia'}},lastrevid:123,claims:{P36:[statement('Q2')]}},Q2:{id:'Q2',labels:{en:{value:'Canberra'}}},Q3:{id:'Q3',labels:{en:{value:'Sydney'}}}};
+  const entities={Q1:{id:'Q1',labels:{en:{value:'Australia'}},lastrevid:123,claims:{P36:[statement('Q2')]}},Q2:{id:'Q2',labels:{en:{value:'Canberra'}},claims:{P17:[statement('Q1')]}},Q3:{id:'Q3',labels:{en:{value:'Sydney'}},claims:{P17:[statement('Q1')]}}};
   const mock=async url=>{const p=new URL(url).searchParams;return {ok:true,json:async()=>p.get('action')==='wbsearchentities'?{search:Object.values(entities).filter(e=>e.labels.en.value===p.get('search')).map(e=>({id:e.id}))}:{entities:Object.fromEntries(p.get('ids').split('|').map(id=>[id,entities[id]]))}};};
   assert.equal((await F.check('Canberra is the capital of Australia.',mock)).status,'Supported by structured source');
   assert.equal((await F.check('Sydney is the capital of Australia.',mock)).status,'Contradicted by structured source');

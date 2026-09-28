@@ -46,14 +46,17 @@
       const data=await r.json(); if(data.error)throw new Error('Structured source request failed.');return data;
     };
     const get=async ids=>(await request({action:'wbgetentities',ids:ids.join('|'),props:'labels|aliases|claims|info',languages:'en'})).entities || {};
-    const resolve=async name=>{
+    const resolve=async (name, accepts=()=>true)=>{
       const found=await request({action:'wbsearchentities',search:name,language:'en',uselang:'en',type:'item',limit:'5'});
       const ids=(found.search || []).map(x=>x.id); if(!ids.length)return null;
       const entities=Object.values(await get(ids));
-      const exact=entities.filter(e=>[e.labels?.en?.value,...(e.aliases?.en || []).map(a=>a.value)].filter(Boolean).some(s=>normalize(s)===normalize(name)));
+      const exact=entities.filter(e=>accepts(e) && [e.labels?.en?.value,...(e.aliases?.en || []).map(a=>a.value)].filter(Boolean).some(s=>normalize(s)===normalize(name)));
       return exact.length===1 ? exact[0] : null;
     };
-    const [subject,place]=await Promise.all([resolve(parsed.subject),resolve(parsed.place)]);
+    const place=await resolve(parsed.place,e=>(e.claims?.[parsed.property] || []).length>0);
+    const entityValues=(e,p)=>(e?.claims?.[p] || []).map(s=>s.mainsnak?.datavalue?.value?.id).filter(Boolean);
+    const countries=place ? [place.id,...entityValues(place,'P17')] : [];
+    const subject=place ? await resolve(parsed.subject,e=>parsed.property==='P6' ? entityValues(e,'P31').includes('Q5') : entityValues(e,'P17').some(id=>countries.includes(id))) : null;
     const unresolved=reason=>({status:'Insufficient evidence',engine:'structured-wikidata',evidence:[],sourceCount:0,publisherCount:0,correctionPassage:null,assessedAt:now,caution:reason+' No language-model fallback is used for this recognized relation.'});
     if(!subject || !place)return unresolved('The entity names could not be resolved unambiguously.');
     if(parsed.relation==='prime minister') {
