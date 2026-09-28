@@ -50,7 +50,9 @@
       const found=await request({action:'wbsearchentities',search:name,language:'en',uselang:'en',type:'item',limit:'5'});
       const ids=(found.search || []).map(x=>x.id); if(!ids.length)return null;
       const entities=Object.values(await get(ids));
-      const exact=entities.filter(e=>accepts(e) && [e.labels?.en?.value,...(e.aliases?.en || []).map(a=>a.value)].filter(Boolean).some(s=>normalize(s)===normalize(name)));
+      const candidates=entities.filter(accepts);
+      const canonical=candidates.filter(e=>e.labels?.en?.value && normalize(e.labels.en.value)===normalize(name));
+      const exact=canonical.length ? canonical : candidates.filter(e=>(e.aliases?.en || []).some(a=>normalize(a.value)===normalize(name)));
       return exact.length===1 ? exact[0] : null;
     };
     const place=await resolve(parsed.place,e=>(e.claims?.[parsed.property] || []).length>0);
@@ -58,7 +60,8 @@
     const countries=place ? [place.id,...entityValues(place,'P17')] : [];
     const subject=place ? await resolve(parsed.subject,e=>parsed.property==='P6' ? entityValues(e,'P31').includes('Q5') : entityValues(e,'P17').some(id=>countries.includes(id))) : null;
     const unresolved=reason=>({status:'Insufficient evidence',engine:'structured-wikidata',evidence:[],sourceCount:0,publisherCount:0,correctionPassage:null,assessedAt:now,caution:reason+' No language-model fallback is used for this recognized relation.'});
-    if(!subject || !place)return unresolved('The entity names could not be resolved unambiguously.');
+    if(!place)return unresolved('The place name could not be resolved unambiguously for this relation. Use its full official name.');
+    if(!subject)return unresolved('The person or city could not be resolved unambiguously in the place context. Use its full name.');
     if(parsed.relation==='prime minister') {
       const offices=currentStatements(place.claims?.P1313,now);
       if(offices.length!==1)return unresolved('The head-of-government office title could not be established.');

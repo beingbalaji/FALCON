@@ -39,7 +39,7 @@ test('local server serves the app and analysis API without secrets or external d
   assert.equal(html.status, 200);
   const markup = await html.text();
   assert.match(markup, /FALCON · Claim Review Lab/);
-  assert.match(markup, /app\.js\?v=5/);
+  assert.match(markup, /app\.js\?v=6/);
   const css = await fetch(base + '/style.css');
   assert.equal(css.status, 200);
   const response = await fetch(base + '/api/analyze', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({text: 'This city news article discusses a scheduled vote by the council on Friday.'})});
@@ -122,4 +122,14 @@ test('structured checks compare resolved IDs, handle negation, and abstain on am
   entities.Q1.claims.P36=[statement('Q2',{references:[]})];
   assert.equal((await F.check('Sydney is the capital of Australia.',mock)).status,'Insufficient evidence');
   await assert.rejects(()=>F.check('Sydney is the capital of Australia.',async()=>({ok:false,status:503})),/503/);
+});
+test('officeholder checks require the right office and distinguish current from former holders',async()=>{
+  const now='2026-09-28T00:00:00Z';
+  const entities={Q10:{id:'Q10',labels:{en:{value:'Example Republic'}},lastrevid:123,claims:{P1313:[statement('Q20')],P6:[statement('Q30'),statement('Q40',{qualifiers:{P582:[timeQualifier('+2020-01-01T00:00:00Z')]}})]}},Q20:{id:'Q20',labels:{en:{value:'Prime Minister of Example Republic'}}},Q30:{id:'Q30',labels:{en:{value:'Ada Doe'}},claims:{P31:[statement('Q5')]}},Q40:{id:'Q40',labels:{en:{value:'Lee Doe'}},claims:{P31:[statement('Q5')]}}};
+  const mock=async url=>{const p=new URL(url).searchParams;return {ok:true,json:async()=>p.get('action')==='wbsearchentities'?{search:Object.values(entities).filter(e=>e.labels.en.value===p.get('search')).map(e=>({id:e.id}))}:{entities:Object.fromEntries(p.get('ids').split('|').map(id=>[id,entities[id]]))}};};
+  assert.equal((await F.check('Ada Doe is the prime minister of Example Republic.',mock,undefined,now)).status,'Supported by structured source');
+  assert.equal((await F.check('Ada Doe is not the prime minister of Example Republic.',mock,undefined,now)).status,'Contradicted by structured source');
+  assert.equal((await F.check('Lee Doe is the prime minister of Example Republic.',mock,undefined,now)).status,'Contradicted by structured source');
+  entities.Q20.labels.en.value='President of Example Republic';
+  assert.equal((await F.check('Ada Doe is the prime minister of Example Republic.',mock,undefined,now)).status,'Insufficient evidence');
 });
