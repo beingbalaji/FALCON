@@ -59,7 +59,7 @@
     const entityValues=(e,p)=>(e?.claims?.[p] || []).map(s=>s.mainsnak?.datavalue?.value?.id).filter(Boolean);
     const countries=place ? [place.id,...entityValues(place,'P17')] : [];
     const subject=place ? await resolve(parsed.subject,e=>parsed.property==='P6' ? entityValues(e,'P31').includes('Q5') : entityValues(e,'P17').some(id=>countries.includes(id))) : null;
-    const unresolved=reason=>({status:'Insufficient evidence',engine:'structured-wikidata',evidence:[],sourceCount:0,publisherCount:0,correctionPassage:null,assessedAt:now,caution:reason+' No language-model fallback is used for this recognized relation.'});
+    const unresolved=reason=>({status:'Insufficient evidence',engine:'structured-wikidata',sourceRecords:place?.claims?.[parsed.property] || [],sourceEntity:place?.id || null,sourceRevision:place?.lastrevid || null,evidence:[],sourceCount:0,publisherCount:0,correctionPassage:null,assessedAt:now,caution:reason+' No language-model fallback is used for this recognized relation.'});
     if(!place)return unresolved('The place name could not be resolved unambiguously for this relation. Use its full official name.');
     if(!subject)return unresolved('The person or city could not be resolved unambiguously in the place context. Use its full name.');
     if(parsed.relation==='prime minister') {
