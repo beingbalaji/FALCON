@@ -1,8 +1,8 @@
 {
   "name": "falcon-review-lab",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "Transparent misinformation review prototype reconstructed from FALCON project documents",
+  "description": "Evidence retrieval and pretrained NLI comparison with transparent writing-cue analysis",
   "scripts": {
     "start": "node server.js",
     "test": "node --test tests.js"

@@ -39,7 +39,7 @@ test('local server serves the app and analysis API without secrets or external d
   assert.equal(html.status, 200);
   const markup = await html.text();
   assert.match(markup, /FALCON · Claim Review Lab/);
-  assert.match(markup, /app\.js\?v=2/);
+  assert.match(markup, /app\.js\?v=3/);
   const css = await fetch(base + '/style.css');
   assert.equal(css.status, 200);
   const response = await fetch(base + '/api/analyze', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({text: 'This city news article discusses a scheduled vote by the council on Friday.'})});
@@ -54,4 +54,41 @@ test('local server serves the app and analysis API without secrets or external d
   assert.equal((await invalid.json()).success, false);
   const large = await fetch(base + '/api/analyze', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({text: 'a'.repeat(40000)})});
   assert.equal(large.status, 413);
+});
+
+const E = require('./evidence-core');
+const {retrieve} = require('./evidence-sources');
+const source = {title:'Example source',url:'https://example.org/evidence',publisher:'Example',text:'The capital city of Australia is Canberra.'};
+const support = {...source,scores:{entailment:.97,contradiction:.02,neutral:.01}};
+const refute = {...source,url:'https://example.org/other',scores:{entailment:.02,contradiction:.97,neutral:.01}};
+test('evidence decisions abstain on missing or weak evidence and preserve conflicts',()=>{
+  assert.equal(E.decide([]).status,'Insufficient evidence');
+  assert.equal(E.decide([{...source,scores:{entailment:.60,contradiction:.35,neutral:.05}}]).status,'Insufficient evidence');
+  assert.equal(E.decide([support]).status,'Supported by retrieved evidence');
+  assert.equal(E.decide([refute]).correctionPassage,source.text);
+  const conflict=E.decide([support,refute]);
+  assert.equal(conflict.status,'Conflicting evidence');
+  assert.equal(conflict.correctionPassage,null);
+  assert.equal(conflict.publisherCount,1); // Two Wikipedia pages are not two independent publishers.
+  assert.equal(E.decide([{...source,scores:{entailment:NaN,contradiction:0,neutral:0}}]).status,'Insufficient evidence');
+});
+test('retrieval relevance is independent of claim negation and excludes unrelated passages',()=>{
+  assert.equal(E.searchQuery('Canberra is the capital of Australia.'),E.searchQuery('Canberra is not the capital of Australia.'));
+  assert.equal(E.rankPassages('Sydney is the capital of Australia.',[source]).length,1);
+  assert.equal(E.rankPassages('A doctor works in a hospital.',[source]).length,0);
+  assert.throws(()=>E.validateClaim('x'.repeat(351)),/350/);
+  assert.throws(()=>E.softmax([NaN,1,2]),/invalid/);
+  const scores=E.softmax([0,10,0]);assert.ok(scores.entailment>.99);
+});
+test('live source adapter preserves revision citation and fails on network errors',async()=>{
+  const calls=[];
+  const fetchMock=async url=>{
+    calls.push(url);
+    return {ok:true,json:async()=>calls.length===1 ? {query:{search:[{pageid:10}]}} : {query:{pages:[{title:'Canberra',extract:source.text,fullurl:'https://en.wikipedia.org/wiki/Canberra',revisions:[{revid:123,timestamp:'2026-01-01T00:00:00Z'}]}]}}};
+  };
+  const results=await retrieve('Sydney is the capital of Australia.',fetchMock);
+  assert.equal(results[0].url,'https://en.wikipedia.org/w/index.php?oldid=123');
+  assert.equal(results[0].publisher,'Wikipedia');
+  assert.ok(new URL(calls[0]).searchParams.get('srsearch').includes('sydney'));
+  await assert.rejects(()=>retrieve('Sydney is the capital of Australia.',async()=>({ok:false,status:503})),/503/);
 });

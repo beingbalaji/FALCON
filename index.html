@@ -6,28 +6,51 @@
   <meta name="theme-color" content="#101b2d">
   <meta name="description" content="FALCON: a transparent claim-review and misinformation research prototype.">
   <title>FALCON · Claim Review Lab</title>
-  <link rel="stylesheet" href="style.css?v=2">
+  <link rel="stylesheet" href="style.css?v=3">
   <script defer src="analysis.js?v=2"></script>
-  <script defer src="app.js?v=2"></script>
+  <script defer src="app.js?v=3"></script>
+  <script defer src="evidence-core.js?v=3"></script>
+  <script defer src="evidence-sources.js?v=3"></script>
+  <script defer src="evidence-ui.js?v=3"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <header class="site-header wrap">
     <a class="brand" href="#top" aria-label="FALCON home"><span class="brand-icon">F</span><span>FALCON <small>research lab</small></span></a>
-    <nav aria-label="Main navigation"><a href="#analyze">Analyze</a><a href="#dashboard">Dashboard</a><a href="#method">Method</a></nav>
+    <nav aria-label="Main navigation"><a href="#verify">Evidence</a><a href="#analyze">Writing cues</a><a href="#dashboard">Dashboard</a><a href="#method">Method</a></nav>
     <a class="source-link" href="https://github.com/beingbalaji/FALCON">View source ↗</a>
   </header>
   <main id="main">
     <section id="top" class="hero wrap">
       <div class="eyebrow">FEDERATED ANALYSIS AND LINGUISTIC CORRELATION NETWORK</div>
       <h1>Pause the spread.<br><em>Inspect the claim.</em></h1>
-      <p class="lead">A working reconstruction of Balaji R’s FALCON project concept. Inspect writing cues, organize an evidence check, and track topics in your own review session.</p>
-      <div class="hero-actions"><a class="primary" href="#analyze">Start a review <span aria-hidden="true">→</span></a><a class="secondary" href="#method">How this works</a></div>
-      <div class="notice"><strong>Research prototype.</strong> Every submitted claim remains <strong>unverified</strong> until evidence is checked. No trained model, live feed, automatic fact-check, or federated training is included in this reconstruction.</div>
+      <p class="lead">Compare a factual claim with retrieved sources using a pretrained language inference model. Inspect the passages, check their dates, and see where the evidence supports, contradicts, or leaves a claim unresolved.</p>
+      <div class="hero-actions"><a class="primary" href="#verify">Check a claim <span aria-hidden="true">→</span></a><a class="secondary" href="#method">How this works</a></div>
+      <div class="notice"><strong>Evidence research beta.</strong> The model compares a claim with source passages. It can make mistakes and cannot establish every fact. Always inspect citations, especially for changing events. No FALCON-specific model training or federated training has been completed.</div>
+    </section>
+
+    <section id="verify" class="workspace wrap" aria-labelledby="verifyTitle">
+      <div class="section-heading"><div><span class="eyebrow">EVIDENCE / COMPARE</span><h2 id="verifyTitle">What do the sources say?</h2><p>One short English claim works best. The model checks whether retrieved passages support it, contradict it, or leave it unresolved.</p></div><span class="chip">Pretrained DeBERTa · On your device</span></div>
+      <div class="panel evidence-input">
+        <label for="factClaim"><strong>Claim to check</strong></label>
+        <textarea id="factClaim" maxlength="350" placeholder="For example: Sydney is the capital of Australia."></textarea>
+        <div class="sample-row"><button class="sample" type="button" data-fact-example="Canberra is the capital of Australia.">Supported example</button><button class="sample" type="button" data-fact-example="Sydney is the capital of Australia.">Contradiction example</button></div>
+        <label for="evidenceMode">Evidence source</label><select id="evidenceMode"><option value="wiki">Search live Wikipedia articles</option><option value="passage">Compare with a source passage I provide</option></select>
+        <div id="customEvidence" hidden><label for="sourceURL">Source URL (HTTPS)</label><input id="sourceURL" type="url" placeholder="https://…"><label for="sourceText">Evidence passage</label><textarea id="sourceText" maxlength="6000" placeholder="Paste the relevant source text. Its origin cannot be authenticated by this tool."></textarea></div>
+        <p class="micro">Clicking Check evidence sends search keywords from this claim to Wikipedia. Model files download from Hugging Face and jsDelivr (about 90 MB on first use); inference runs locally. Your evidence report stays in memory unless you export it. Wikipedia pages share one publisher and are not independent corroboration.</p>
+        <div class="evidence-actions"><button type="button" id="verifyBtn" class="primary">Check evidence →</button><button type="button" id="cancelVerify" class="secondary" hidden>Cancel check</button><button type="button" id="exportEvidence" class="secondary" hidden>Export evidence report</button></div>
+        <p id="verifyProgress" role="status" aria-live="polite">The first check downloads the model. Later checks reuse the browser cache.</p>
+      </div>
+      <section id="evidenceResult" class="panel evidence-report" aria-live="polite" hidden>
+        <span class="eyebrow">SOURCE COMPARISON · EXPERIMENTAL</span><h3 id="evidenceStatus"></h3><p id="evidenceSummary"></p>
+        <div id="correctedPassage" class="source-correction" hidden><h4>What the contradicting source says</h4><p id="correctionText"></p><p class="micro">This passage is the source’s account, not a newly generated answer. Check the citation below.</p></div>
+        <div id="evidenceCards"></div>
+      </section>
+      <details class="diagnostics panel"><summary>Model details and diagnostic checks</summary><p>Model: <a href="https://huggingface.co/Xenova/nli-deberta-v3-xsmall">DeBERTa v3 xsmall (ONNX)</a>, pretrained on SNLI and MultiNLI. A strong source relationship must score at least 0.90; competing support and contradiction produce a conflict result. These thresholds have not been calibrated for general fact-checking.</p><p>Run nine fixed, hand-written sentence-pair checks to inspect model behavior. These are not a representative accuracy benchmark or training data.</p><button type="button" id="diagnosticBtn" class="secondary">Run model diagnostics</button><div id="diagnosticResults"></div></details>
     </section>
 
     <section id="analyze" class="workspace wrap" aria-labelledby="analyze-title">
-      <div class="section-heading"><div><span class="eyebrow">01 / INVESTIGATE</span><h2 id="analyze-title">Review a piece of text</h2><p>Paste a headline, post, or short article. Analysis runs on your device; the public demo does not send your text to a server.</p></div><span class="chip">No sign-in · No API key</span></div>
+      <div class="section-heading"><div><span class="eyebrow">01 / INVESTIGATE</span><h2 id="analyze-title">Inspect writing cues</h2><p>Paste a headline, post, or short article. Analysis runs on your device; the public demo does not send your text to a server.</p></div><span class="chip">No sign-in · No API key</span></div>
       <div class="columns">
         <section class="panel input-panel" aria-labelledby="input-title">
           <div class="panel-head"><h3 id="input-title">Content to examine</h3><span class="muted" id="length">0 / 10,000</span></div>
@@ -51,7 +74,7 @@
 
     <section id="dashboard" class="dashboard wrap" aria-labelledby="dashboard-title"><div class="section-heading"><div><span class="eyebrow">02 / OBSERVE</span><h2 id="dashboard-title">Your review dashboard</h2><p>Only topic, writing-cue count, word count, and time are saved in this browser. Your submitted text is not stored. Every entry remains unverified.</p></div><div class="dash-actions"><button type="button" id="exportBtn" class="secondary">Export JSON</button><button type="button" id="clearBtn" class="text-button">Clear history</button></div></div><div class="dash-grid"><div class="panel metric-card"><span>Reviews in this browser</span><strong id="total">0</strong><small>Latest 40 summaries</small></div><div class="panel metric-card"><span>Reviews with listed cues</span><strong id="cueReviews">0</strong><small>Writing patterns, not truth verdicts</small></div><div class="panel topics-panel"><h3>Topic distribution</h3><div id="topics" class="topic-chart"><p class="muted">Analyze a sample to see topics.</p></div></div></div><div class="panel recent-panel"><div class="panel-head"><h3>Recent reviews</h3><span class="muted">Stored on this device</span></div><div id="recent" class="recent-list"><p class="muted">No reviews yet.</p></div></div></section>
 
-    <section id="method" class="method wrap" aria-labelledby="method-title"><div><span class="eyebrow">03 / UNDERSTAND</span><h2 id="method-title">What the report means</h2><p>FALCON looks for transparent language cues: sensational phrasing, requests to share urgently, sweeping claims, vague authority, and emphatic formatting. It reports matches without assigning a truth score or estimating the probability that a claim is false.</p><p>Topic detection uses a short keyword list. The dashboard groups only items you analyzed in this browser. A neutral style does <strong>not</strong> make a claim true, and sensational style does <strong>not</strong> make it false. Check current primary sources and independent reporting. The research write-up also proposes BERT classification, external fact checks, live streams, and federated learning. Those components require the missing original code, trained model, data, and credentials and are not simulated as completed features.</p><a href="https://github.com/beingbalaji/FALCON#method-and-limitations">Read the method and limitations ↗</a></div><div class="method-card"><span class="eyebrow">SOURCE MATERIALS</span><h3>Reconstructed from three provided files</h3><p>A research write-up, a backend implementation guide, and an HTML prototype informed this working app. The HTML prototype’s browser token placeholder has been removed.</p><div class="rule"></div><p><strong>Private by default:</strong> text stays in your browser on the hosted demo. The optional local Node API processes requests in memory and does not save them.</p></div></section>
+    <section id="method" class="method wrap" aria-labelledby="method-title"><div><span class="eyebrow">03 / UNDERSTAND</span><h2 id="method-title">What the report means</h2><p>FALCON looks for transparent language cues: sensational phrasing, requests to share urgently, sweeping claims, vague authority, and emphatic formatting. It reports matches without assigning a truth score or estimating the probability that a claim is false.</p><p>Topic detection uses a short keyword list. The dashboard groups only items you analyzed in this browser. A neutral style does <strong>not</strong> make a claim true, and sensational style does <strong>not</strong> make it false. Check current primary sources and independent reporting. The evidence tool above uses a separate pretrained DeBERTa model and retrieved passages. This writing-cue report cannot establish factual accuracy. The original research proposal’s BERT training, live social streams, and federated learning remain unimplemented.</p><a href="https://github.com/beingbalaji/FALCON#method-and-limitations">Read the method and limitations ↗</a></div><div class="method-card"><span class="eyebrow">SOURCE MATERIALS</span><h3>Reconstructed from three provided files</h3><p>A research write-up, a backend implementation guide, and an HTML prototype informed this working app. The HTML prototype’s browser token placeholder has been removed.</p><div class="rule"></div><p><strong>Private by default:</strong> writing-cue analysis stays in your browser. Evidence search sends keywords to Wikipedia; the model compares passages on your device. The optional Node API only supplies writing-cue analysis and does not store requests.</p></div></section>
   </main>
   <footer class="wrap"><span>FALCON · Balaji R · Reconstructed research prototype</span><a href="https://github.com/beingbalaji">GitHub profile ↗</a></footer>
 </body>

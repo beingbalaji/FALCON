@@ -1,0 +1,11 @@
+[
+ {"evidence":"The capital city of Australia is Canberra.","claim":"Canberra is the capital of Australia.","expected":"entailment"},
+ {"evidence":"The capital city of Australia is Canberra.","claim":"Sydney is the capital of Australia.","expected":"contradiction"},
+ {"evidence":"The first crewed Moon landing took place in 1969.","claim":"The first crewed Moon landing happened in 1969.","expected":"entailment"},
+ {"evidence":"The first crewed Moon landing took place in 1969.","claim":"The first crewed Moon landing happened in 1989.","expected":"contradiction"},
+ {"evidence":"The library is closed on Sundays.","claim":"The library is open on Sundays.","expected":"contradiction"},
+ {"evidence":"The library is closed on Sundays.","claim":"The library is not open on Sundays.","expected":"entailment"},
+ {"evidence":"The book has a blue cover.","claim":"The book has a red cover.","expected":"contradiction"},
+ {"evidence":"The park opened in 1990.","claim":"The park contains a cafe.","expected":"neutral"},
+ {"evidence":"A woman is reading a book in a room.","claim":"The woman is a doctor.","expected":"neutral"}
+]

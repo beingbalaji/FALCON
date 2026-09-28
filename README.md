@@ -1,64 +1,78 @@
-# FALCON — Claim Review Lab
+# FALCON — Evidence & Claim Review Lab
 
-**[Open the interactive demo](https://beingbalaji.github.io/FALCON/)** · [Balaji R's profile](https://github.com/beingbalaji)
+**[Open the interactive demo](https://beingbalaji.github.io/FALCON/)** · [Balaji R](https://github.com/beingbalaji)
 
-A working reconstruction of **Federated Analysis and Linguistic Correlation Network**, a research concept for early review of misinformation trends. This version offers a transparent, self-contained review workflow: paste text, inspect explainable linguistic signals, check a topic overview, search published fact checks, record manual verification steps, and export local summary data.
+FALCON reconstructs the **Federated Analysis and Linguistic Correlation Network** research concept. It now retrieves evidence and runs a real pretrained natural-language inference model in the browser. Paste one English claim, inspect source passages, and see whether the model finds support, contradiction, a conflict, or insufficient evidence.
 
-> **Research prototype:** Every claim remains **Unverified**. The app reports matched writing cues and does not predict truth, assign a fake-news probability, or claim a completed fact check. Neutral prose can contain a false statement; sensational prose can contain a true one. Do not use the output to label people, news outlets, or health claims as factual or false.
+> **Research beta:** Results describe a model's comparison with the retrieved text. They are not guaranteed truth verdicts. Retrieval can miss important context, sources can be outdated or incorrect, and the model can make mistakes. There is no measured end-to-end fact-checking accuracy claim.
 
-## Run it
+## Use it
 
-Requires **Node.js 18+** for the optional local server. No package installation, account, token, database, or internet connection is required.
+1. Open the demo in a modern desktop browser.
+2. Enter one short English claim (10–350 characters).
+3. Choose live Wikipedia retrieval or supply a passage and its HTTPS source URL.
+4. Select **Check evidence**. The first run downloads about 90 MB of model files and may take a few minutes. Later runs reuse browser caches.
+5. Read the cited passages and dates. For a contradiction, the report surfaces what the source says rather than inventing a replacement answer.
+
+The public app requires no account or API key. Internet access is required for source retrieval and the initial model download. Memory, browser, network, and device limitations can prevent inference; failure is reported without a factual verdict. Use **Cancel check** to stop a download or inference.
+
+## What is implemented
+
+- **Actual pretrained model:** DeBERTa v3 xsmall NLI, trained upstream on SNLI and MultiNLI, running with Transformers.js and ONNX in a web worker.
+- **Live retrieval:** up to four Wikipedia article introductions, with revision URLs, update times, retrieval times, and publisher labels.
+- **Your own source:** compare a primary-source passage you paste with a claim. The app cannot authenticate pasted text or its claimed origin.
+- **Conservative source decisions:** require a 0.90 model relationship score and a margin of 0.35. Opposing strong evidence produces a conflict. Weak/missing evidence produces an insufficient-evidence result. Thresholds are design choices, not validated accuracy guarantees.
+- **Traceable correction:** a contradicted claim displays the exact retrieved passage as the source's account, with citation.
+- **Inspectable results:** source text, model relationship scores, and downloadable JSON.
+- **Writing-cue review:** the earlier local rules remain available separately, with no truth score.
+- **Diagnostic checks:** nine hand-written evidence/claim pairs can be run against the actual model. These are a smoke check, not a representative evaluation benchmark.
+
+## Run locally
+
+Requires Node.js 18+ for the optional server. No npm package installation is needed for the server itself.
 
 ```bash
-node server.js
+npm start
 # Open http://127.0.0.1:3000
+npm test
 ```
 
-Alternatively, open `index.html` directly in a modern browser. The same static app works on GitHub Pages. The text analysis runs in the browser; the optional local API is available at `POST /api/analyze`.
+Use HTTP (GitHub Pages or the local server), because model inference uses a module web worker. Opening `index.html` as a local file is not supported for the evidence feature.
 
-```bash
-curl -s http://127.0.0.1:3000/api/analyze \
-  -H 'Content-Type: application/json' \
-  -d '{"text":"BREAKING!!! You will not believe this shocking secret truth. Share this now before it is deleted!"}'
-```
+`POST /api/analyze` remains the writing-cue API only. It does not run the evidence model. `GET /health` reports server status. Evidence inference runs in the browser.
 
-The API returns `success`, `analysis.verificationStatus` (`Unverified`), `analysis.factualVerdict` (`null`), `analysis.cueCount`, `analysis.topic`, `analysis.signals`, `analysis.metrics`, and a `disclaimer`. Earlier `reviewScore` and `priority` fields were removed because they were easy to mistake for factual predictions. `GET /health` reports local server status. The local server processes text in memory and does not persist or log it.
+## Privacy and external services
 
-## Features
+Selecting live evidence search sends claim keywords and page requests to **English Wikipedia**. Model assets are downloaded from **Hugging Face** and **jsDelivr**; the model compares text locally. These services receive normal request metadata such as IP address. Do not use public search with private claims.
 
-- **Explainable writing cues:** displays matched phrases and why they warrant a closer look, with a prominent Unverified status.
-- **Evidence lookup:** links to Google Fact Check Explorer for a manual search. A matching article must be checked against the exact claim, date, and original source; no match proves nothing.
-- **Topic view:** groups analyzed items into Health, Politics, Finance, Technology, Climate, or General using a small keyword list.
-- **Verification checklist:** prompts source, primary-evidence, and independent-corroboration checks; ticking boxes does not automatically verify a claim.
-- **Local dashboard:** stores the latest 40 *summaries* (topic, writing-cue count, word count, time) in this browser's local storage. It does **not** store submitted text. Older summaries migrate without their misleading score labels.
-- **JSON export and clear:** export or remove the browser's saved summaries.
-- **No frontend API key:** the supplied HTML prototype called a third-party model from the browser with a `YOUR_HF_API_TOKEN` placeholder. This reconstruction removes that broken and insecure dependency.
+Evidence reports stay in memory until you explicitly export them. The separate writing-cue dashboard stores only topic, cue count, word count, and time locally. It does not store submitted text. No third-party model API key is embedded in the frontend.
 
 ## Method and limitations
 
-The rules in `analysis.js` match a limited set of language cues and count the types matched. They cannot understand satire, context, quotations, bias, a cited study, or whether a claim is correct. In particular, a statement and its negation can have identical writing-cue reports. Topic labels are keyword-based. The app does not automatically query fact-check databases or public feeds. An explicit link opens Fact Check Explorer for a manual evidence search; submitted text is not sent there automatically.
+Search terms omit negation so a false statement is not forced to retrieve only similarly worded content. Candidate passages retain neighbouring sentences. A lexical relevance filter picks at most six passages; the pinned NLI model compares each passage (premise) with the claim (hypothesis). Its three output labels are contradiction, entailment, and neutral. A guard checks label mapping before inference.
 
-The original research write-up describes fine-tuned BERT, Google Fact Check integration, knowledge graphs, social-stream collection, and federated training. The provided materials contained **no trained model weights, datasets, integration credentials, operational client nodes, or runnable backend source**. A separate backend guide described desired Express, MongoDB, Redis, WebSocket, and federated modules but supplied architecture and snippets rather than those source files. The write-up includes evaluation percentages, but no reproducible dataset or evaluation procedure was supplied; this repository does **not** claim or reproduce those results.
+Wikipedia is one publisher, even if multiple pages agree. This is not independent corroboration or an authoritative primary-source search engine. The retrieval scope is limited to English article introductions and can miss evidence elsewhere. A model may overread a passage, confuse names or quantities, mishandle negation, or infer something the source never establishes. Dates describe article revisions and retrieval, not necessarily when the underlying fact was last verified. For current office holders, breaking news, health, finance, or legal claims, inspect current primary sources before relying on an output.
 
-To turn this into a validated classifier, the next steps are to obtain appropriately licensed labeled data, train and evaluate a documented model on a held-out set, add a server-side fact-check integration with proper secrets management, assess error rates and bias, then implement federated training only if real participating nodes and a privacy protocol exist. Those are future research tasks, not current features.
+FALCON does not yet implement multilingual validation, a licensed multi-publisher search backend, fact-check API integration, a public claim benchmark, calibrated confidence, original FALCON model training, or federated training. No system can detect every false claim.
 
-## Project layout
+See [MODEL_CARD.md](MODEL_CARD.md) for model provenance, evaluation status, and the requirements for further training.
 
-| File | Purpose |
-| --- | --- |
-| `index.html` | Accessible interface and research notes |
-| `style.css` | Responsive design |
-| `app.js` | Browser interaction, dashboard, local export |
-| `analysis.js` | Shared deterministic signal analysis |
-| `server.js` | Optional local HTTP API and file server |
-| `tests.js` | API and analysis checks |
-| `package.json` | Dependency-free start/test commands |
+## Files
 
-Run `npm test` (or `node --test tests.js`) to check the analysis and local API.
+| File | Role |
+|---|---|
+| `index.html`, `style.css` | Responsive interface |
+| `evidence-core.js` | Claim validation, relevance, score conversion, evidence decisions |
+| `evidence-sources.js` | Wikipedia API adapter and revision citations |
+| `evidence-worker.js` | Pinned pretrained model inference |
+| `evidence-ui.js` | Search, worker lifecycle, cancellation, reports, diagnostics |
+| `diagnostics.json` | Fixed hand-written model smoke checks |
+| `analysis.js`, `app.js` | Separate writing-cue analysis and local summary dashboard |
+| `server.js` | Optional static server and writing-cue API |
+| `tests.js` | API, evidence decision, failure, conflict, and retrieval adapter checks |
 
 ## Reconstruction provenance
 
-Rebuilt in 2026 from three materials supplied by Balaji R: a FALCON research write-up (`.docx`), a backend implementation guide (`.md`), and a single-file HTML prototype. This is a reconstructed proof of concept, not a recovery of the lost original source. The documents are not republished here; this repository includes newly written implementation code and an explicit record of supported features and gaps.
+Rebuilt in 2026 from three files supplied by Balaji R: a FALCON research write-up, a backend guide, and an HTML prototype. The lost original source, model weights, datasets, and reproducible evaluations were not provided. This repository contains a new implementation, not recovered original code. The supplied documents are not republished here.
 
-Copyright © 2026 Balaji R. All rights reserved until a license is chosen.
+Copyright © 2026 Balaji R. All rights reserved for original project code until a license is chosen. External models, libraries, and retrieved text retain their respective licenses and attribution requirements.
