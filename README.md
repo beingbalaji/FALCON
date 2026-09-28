@@ -10,7 +10,7 @@ FALCON reconstructs the **Federated Analysis and Linguistic Correlation Network*
 
 1. Open the demo in a modern desktop browser.
 2. Enter one short English claim (10–350 characters).
-3. Choose live Wikipedia retrieval or supply a passage and its HTTPS source URL.
+3. Choose live structured-fact / Wikipedia retrieval or supply a passage and its HTTPS source URL.
 4. Select **Check evidence**. The first run downloads about 90 MB of model files and may take a few minutes. Later runs reuse browser caches.
 5. Read the cited passages and dates. For a contradiction, the report surfaces what the source says rather than inventing a replacement answer.
 
@@ -18,6 +18,7 @@ The public app requires no account or API key. Internet access is required for s
 
 ## What is implemented
 
+- **Structured factual checks:** explicitly phrased “X is [not] the capital / prime minister / head of government of Y” claims resolve entity IDs and compare current Wikidata statements. The checker filters dates, ranks, and qualifiers; ambiguous names, missing records, and unsupported contexts remain unresolved. No facts or names are hard-coded.
 - **Actual pretrained model:** DeBERTa v3 xsmall NLI, trained upstream on SNLI and MultiNLI, running with Transformers.js and ONNX in a web worker.
 - **Live retrieval:** up to four Wikipedia article introductions, with revision URLs, update times, retrieval times, and publisher labels.
 - **Your own source:** compare a primary-source passage you paste with a claim. The app cannot authenticate pasted text or its claimed origin.
@@ -43,17 +44,21 @@ Use HTTP (GitHub Pages or the local server), because model inference uses a modu
 
 ## Privacy and external services
 
-Selecting live evidence search sends claim keywords and page requests to **English Wikipedia**. Model assets are downloaded from **Hugging Face** and **jsDelivr**; the model compares text locally. These services receive normal request metadata such as IP address. Do not use public search with private claims.
+Selecting live evidence search sends entity names to **Wikidata** for supported structured relations, or claim keywords and page requests to **English Wikipedia** otherwise. Model assets are downloaded from **Hugging Face** and **jsDelivr**; the model compares text locally. These services receive normal request metadata such as IP address. Do not use public search with private claims.
 
 Evidence reports stay in memory until you explicitly export them. The separate writing-cue dashboard stores only topic, cue count, word count, and time locally. It does not store submitted text. No third-party model API key is embedded in the frontend.
 
 ## Method and limitations
+
+Structured matching supports a deliberately narrow English grammar and does not use the NLI model to override missing or ambiguous records. A different recorded entity yields contradiction only for one referenced current value (and preferred rank for an officeholder). Multiple values can support an exact match but cannot establish absence. Wikidata and Wikipedia are related community-maintained sources, not independent corroboration.
 
 Search terms omit negation so a false statement is not forced to retrieve only similarly worded content. Candidate passages retain neighbouring sentences. A lexical relevance filter picks at most six passages; the pinned NLI model compares each passage (premise) with the claim (hypothesis). Its three output labels are contradiction, entailment, and neutral. A guard checks label mapping before inference.
 
 Wikipedia is one publisher, even if multiple pages agree. This is not independent corroboration or an authoritative primary-source search engine. The retrieval scope is limited to English article introductions and can miss evidence elsewhere. A model may overread a passage, confuse names or quantities, mishandle negation, or infer something the source never establishes. Dates describe article revisions and retrieval, not necessarily when the underlying fact was last verified. For current office holders, breaking news, health, finance, or legal claims, inspect current primary sources before relying on an output.
 
 FALCON does not yet implement multilingual validation, a licensed multi-publisher search backend, fact-check API integration, a public claim benchmark, calibrated confidence, original FALCON model training, or federated training. No system can detect every false claim.
+
+In live testing on 28 September 2026, the model passed 9/9 simple diagnostic pairs but misread state-capital passages as supporting a national-capital claim. This is a documented failure, not hidden by the diagnostic score; supported capital claims now use structured records. See `live-model-observation.txt` for the original UI observation.
 
 See [MODEL_CARD.md](MODEL_CARD.md) for model provenance, evaluation status, and the requirements for further training.
 
@@ -63,6 +68,7 @@ See [MODEL_CARD.md](MODEL_CARD.md) for model provenance, evaluation status, and 
 |---|---|
 | `index.html`, `style.css` | Responsive interface |
 | `evidence-core.js` | Claim validation, relevance, score conversion, evidence decisions |
+| `structured-facts.js` | Entity resolution, date/rank filtering, explicit relation comparison |
 | `evidence-sources.js` | Wikipedia API adapter and revision citations |
 | `evidence-worker.js` | Pinned pretrained model inference |
 | `evidence-ui.js` | Search, worker lifecycle, cancellation, reports, diagnostics |

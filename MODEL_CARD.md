@@ -14,11 +14,11 @@ No new FALCON-specific weights have been trained. The application reuses an exis
 
 ## Evaluation status
 
-Six local software tests cover writing-cue behavior, validation, HTTP handling, fail-closed evidence decisions, conflicting sources, relevance, and citation metadata. These tests use controlled inputs and mocked source responses; they do not measure live factual accuracy.
+Eight local software tests cover writing-cue behavior, validation, HTTP handling, fail-closed evidence decisions, conflicting sources, relevance, and citation metadata. These tests use controlled inputs and mocked source responses; they do not measure live factual accuracy.
 
 `diagnostics.json` contains nine small hand-written sentence pairs for support, negation, wrong entities/dates, and missing information. Run **Model details and diagnostic checks → Run model diagnostics** in the app to execute the real model. The result can be exported. This fixed set is not a held-out research benchmark, and passing it is not a general accuracy estimate.
 
-Live browser validation results will be recorded after deployment. Do not infer a percentage for FALCON from upstream SNLI/MultiNLI scores: those tasks and datasets differ from end-to-end retrieval and fact verification.
+On 28 September 2026, the deployed model ran successfully and classified all 9 diagnostic pairs as expected. Live Wikipedia retrieval also worked. However, a live “Sydney is the capital of Australia” test incorrectly predicted support from state-capital passages and produced a conflict overall. This observed scope-confusion failure is preserved in `live-model-observation.txt`. Capital and head-of-government claims in the supported grammar now use a separate structured entity comparison rather than this model. Structured checks are being validated independently. Do not infer a percentage for FALCON from upstream SNLI/MultiNLI scores: those tasks and datasets differ from end-to-end retrieval and fact verification.
 
 ## What training from more sources requires
 

@@ -39,7 +39,7 @@ test('local server serves the app and analysis API without secrets or external d
   assert.equal(html.status, 200);
   const markup = await html.text();
   assert.match(markup, /FALCON · Claim Review Lab/);
-  assert.match(markup, /app\.js\?v=3/);
+  assert.match(markup, /app\.js\?v=4/);
   const css = await fetch(base + '/style.css');
   assert.equal(css.status, 200);
   const response = await fetch(base + '/api/analyze', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({text: 'This city news article discusses a scheduled vote by the council on Friday.'})});
@@ -91,4 +91,35 @@ test('live source adapter preserves revision citation and fails on network error
   assert.equal(results[0].publisher,'Wikipedia');
   assert.ok(new URL(calls[0]).searchParams.get('srsearch').includes('sydney'));
   await assert.rejects(()=>retrieve('Sydney is the capital of Australia.',async()=>({ok:false,status:503})),/503/);
+});
+
+const F=require('./structured-facts');
+const statement=(id,extra={})=>({rank:'preferred',mainsnak:{snaktype:'value',datavalue:{value:{id}}},references:[{snaks:{}}],...extra});
+const timeQualifier=(time,precision=11)=>({datavalue:{value:{time,precision}}});
+test('structured facts reject historical, future, disputed, and uncertain records',()=>{
+  const now='2026-09-28T00:00:00Z';
+  assert.equal(F.parse('Narendra Modi is not the prime minister of India.').negated,true);
+  assert.equal(F.parse('Narendra Modi was the prime minister of India.'),null);
+  assert.equal(F.parse('Canberra is the capital of Australia and Paris is in France.'),null);
+  assert.equal(F.currentStatements([statement('Q1',{qualifiers:{P582:[timeQualifier('+2025-01-01T00:00:00Z')]}})],now).length,0);
+  assert.equal(F.currentStatements([statement('Q1',{qualifiers:{P580:[timeQualifier('+2027-01-01T00:00:00Z')]}})],now).length,0);
+  assert.equal(F.currentStatements([statement('Q1',{qualifiers:{P580:[timeQualifier('+1913-00-00T00:00:00Z',9)]}})],now).length,1);
+  assert.equal(F.currentStatements([statement('Q1',{qualifiers:{P580:[timeQualifier('+2026-00-00T00:00:00Z',9)]}})],now).length,0);
+  assert.equal(F.currentStatements([statement('Q1',{qualifiers:{P1310:[{}]}})],now).length,0);
+  assert.equal(F.currentStatements([statement('Q1',{rank:'deprecated'})],now).length,0);
+});
+test('structured checks compare resolved IDs, handle negation, and abstain on ambiguity',async()=>{
+  const entities={Q1:{id:'Q1',labels:{en:{value:'Australia'}},lastrevid:123,claims:{P36:[statement('Q2')]}},Q2:{id:'Q2',labels:{en:{value:'Canberra'}}},Q3:{id:'Q3',labels:{en:{value:'Sydney'}}}};
+  const mock=async url=>{const p=new URL(url).searchParams;return {ok:true,json:async()=>p.get('action')==='wbsearchentities'?{search:Object.values(entities).filter(e=>e.labels.en.value===p.get('search')).map(e=>({id:e.id}))}:{entities:Object.fromEntries(p.get('ids').split('|').map(id=>[id,entities[id]]))}};};
+  assert.equal((await F.check('Canberra is the capital of Australia.',mock)).status,'Supported by structured source');
+  assert.equal((await F.check('Sydney is the capital of Australia.',mock)).status,'Contradicted by structured source');
+  assert.equal((await F.check('Canberra is not the capital of Australia.',mock)).status,'Contradicted by structured source');
+  assert.equal((await F.check('Sydney is not the capital of Australia.',mock)).status,'Supported by structured source');
+  assert.equal((await F.check('Unknown is the capital of Australia.',mock)).status,'Insufficient evidence');
+  entities.Q1.claims.P36.push(statement('Q4'));
+  entities.Q4={id:'Q4',labels:{en:{value:'Another capital'}}};
+  assert.equal((await F.check('Sydney is the capital of Australia.',mock)).status,'Insufficient evidence');
+  entities.Q1.claims.P36=[statement('Q2',{references:[]})];
+  assert.equal((await F.check('Sydney is the capital of Australia.',mock)).status,'Insufficient evidence');
+  await assert.rejects(()=>F.check('Sydney is the capital of Australia.',async()=>({ok:false,status:503})),/503/);
 });

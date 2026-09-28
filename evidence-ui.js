@@ -11,9 +11,15 @@
     $('sourceText').disabled=value; $('sourceURL').disabled=value;
   }
   function progress(message) { $('verifyProgress').textContent=message; }
+  function unavailable(message) {
+    $('evidenceStatus').textContent='Assessment unavailable';
+    $('evidenceStatus').dataset.status='insufficient';
+    $('evidenceSummary').textContent='No factual verdict was made.';
+    progress(message); busy(false);
+  }
   function stop() {
     activeId=++sequence; controller?.abort(); worker?.terminate(); worker=null; busy(false);
-    progress('Cancelled. No assessment was made.');
+    unavailable('Cancelled. No assessment was made.');
   }
   function renderSources(evidence) {
     const target=$('evidenceCards'); target.replaceChildren();
@@ -21,11 +27,11 @@
       const card=node('article','','evidence-card');
       const link=node('a',`${i+1}. ${item.title}`); link.href=item.url; link.target='_blank'; link.rel='noopener noreferrer';
       card.append(link, node('p',`${item.publisher} · ${item.kind === 'user-passage' ? 'Supplied by you; origin not authenticated' : 'Retrieved '+new Date(item.fetchedAt).toLocaleString()}`, 'micro'));
-      if(item.updatedAt)card.append(node('p','Article revision: '+new Date(item.updatedAt).toLocaleString(),'micro'));
+      if(item.updatedAt)card.append(node('p','Source revision: '+new Date(item.updatedAt).toLocaleString(),'micro'));
       card.append(node('blockquote',item.text));
       if(item.scores) {
         const [label]=Object.entries(item.scores).sort((a,b)=>b[1]-a[1])[0];
-        card.append(node('p','Model relationship: '+({entailment:'supports', contradiction:'contradicts', neutral:'unclear'}[label]),'relationship'));
+        card.append(node('p','Predicted relationship: '+({entailment:'supports', contradiction:'contradicts', neutral:'unclear'}[label]),'relationship'));
         const details=node('details',''); details.append(node('summary','Model scores (not factual confidence)'));
         details.append(node('p',Object.entries(item.scores).map(([k,v])=>`${k}: ${v.toFixed(3)}`).join(' · '),'micro')); card.append(details);
       }
@@ -37,7 +43,7 @@
     $('evidenceResult').hidden=false;
     $('evidenceStatus').textContent=report.status;
     $('evidenceStatus').dataset.status=report.status.split(' ')[0].toLowerCase();
-    $('evidenceSummary').textContent=`Compared ${report.evidence.length} passages from ${report.sourceCount} page(s), representing ${report.publisherCount} publisher(s). ${report.caution}`;
+    $('evidenceSummary').textContent=`Compared ${report.evidence.length} evidence item(s) from ${report.sourceCount} page(s), representing ${report.publisherCount} publisher(s). ${report.caution}`;
     $('correctedPassage').hidden=!report.correctionPassage;
     $('correctionText').textContent=report.correctionPassage || '';
     renderSources(report.evidence);
@@ -46,12 +52,12 @@
   }
   function ensureWorker() {
     if(worker)return;
-    worker=new Worker('evidence-worker.js?v=3',{type:'module'});
-    worker.onerror=()=>{progress('The model could not start. Check your internet connection and browser support; the claim remains unverified.'); busy(false); worker?.terminate();worker=null;};
+    worker=new Worker('evidence-worker.js?v=4',{type:'module'});
+    worker.onerror=()=>{unavailable('The model could not start. Check your internet connection and browser support; the claim remains unverified.'); worker?.terminate();worker=null;};
     worker.onmessage=({data})=>{
       if(data.id!==activeId)return;
       if(data.kind==='progress')progress(data.message);
-      if(data.kind==='error'){ progress('Assessment unavailable: '+data.message+' No factual verdict was made.'); busy(false); worker?.terminate();worker=null; }
+      if(data.kind==='error'){ unavailable('Assessment unavailable: '+data.message+' No factual verdict was made.'); worker?.terminate();worker=null; }
       if(data.kind==='result')finish(data.report);
       if(data.kind==='diagnostics') {
         const correct=data.results.filter(x=>x.correct).length;
@@ -71,6 +77,8 @@
     try {claim=E.validateClaim($('factClaim').value);}catch(error){progress(error.message);return;}
     const id=activeId=++sequence;
     busy(true); $('evidenceResult').hidden=true; $('exportEvidence').hidden=true; lastReport=null;
+    $('correctedPassage').hidden=true; $('correctionText').textContent='';
+    $('evidenceStatus').dataset.status='';
     $('evidenceCards').replaceChildren();
     controller=new AbortController();
     const timer=setTimeout(()=>controller.abort(),25000);
@@ -83,6 +91,10 @@
         if(url.protocol!=='https:')throw new Error('Use an HTTPS source URL.');
         sources=[{title:'Your evidence passage',url:url.href,text,publisher:url.hostname,kind:'user-passage',fetchedAt:new Date().toISOString()}];
       }else{
+        progress('Checking for a supported structured-fact relation…');
+        const structured=await FalconFacts.check(claim,fetch,controller.signal);
+        if(id!==activeId)return;
+        if(structured){finish(structured);return;}
         progress('Searching English Wikipedia for relevant evidence…');
         sources=await FalconSources.retrieve(claim,fetch,controller.signal);
       }
@@ -96,9 +108,9 @@
     finally{clearTimeout(timer);}
   });
   $('diagnosticBtn').addEventListener('click',async()=>{
-    const id=activeId=++sequence; busy(true); $('diagnosticResults').replaceChildren();
+    const id=activeId=++sequence; busy(true); lastReport=null; $('exportEvidence').hidden=true; $('diagnosticResults').replaceChildren();
     try {
-      const r=await fetch('diagnostics.json?v=3'); if(!r.ok)throw new Error('Unable to load diagnostic cases.');
+      const r=await fetch('diagnostics.json?v=4'); if(!r.ok)throw new Error('Unable to load diagnostic cases.');
       const cases=await r.json(); ensureWorker(); worker.postMessage({id,cases});
     }catch(error){progress(error.message);busy(false);}
   });

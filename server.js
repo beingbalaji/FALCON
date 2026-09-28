@@ -12,6 +12,7 @@ const FILES = new Map([
   ['/evidence-core.js', ['evidence-core.js', 'text/javascript; charset=utf-8']],
   ['/evidence-sources.js', ['evidence-sources.js', 'text/javascript; charset=utf-8']],
   ['/evidence-worker.js', ['evidence-worker.js', 'text/javascript; charset=utf-8']],
+  ['/structured-facts.js', ['structured-facts.js', 'text/javascript; charset=utf-8']],
   ['/evidence-ui.js', ['evidence-ui.js', 'text/javascript; charset=utf-8']],
   ['/diagnostics.json', ['diagnostics.json', 'application/json; charset=utf-8']],
   ['/style.css', ['style.css', 'text/css; charset=utf-8']]
@@ -26,7 +27,7 @@ function createServer() {
   return http.createServer((req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
-    res.setHeader('Content-Security-Policy', "default-src 'self'; style-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self' https://en.wikipedia.org https://huggingface.co https://*.huggingface.co https://*.hf.co https://cdn.jsdelivr.net; img-src 'self' data:; base-uri 'none'; form-action 'none'");
+    res.setHeader('Content-Security-Policy', "default-src 'self'; style-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self' https://en.wikipedia.org https://www.wikidata.org https://huggingface.co https://*.huggingface.co https://*.hf.co https://cdn.jsdelivr.net; img-src 'self' data:; base-uri 'none'; form-action 'none'");
     const url = new URL(req.url, 'http://localhost');
     if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, {status: 'ok', mode: 'local'});
     if (req.method === 'POST' && url.pathname === '/api/analyze') {

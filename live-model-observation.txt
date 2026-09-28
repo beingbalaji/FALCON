@@ -1,0 +1,23 @@
+Live browser observation — 28 September 2026
+Release: e89a02df4f63488558042f70e08289cd4d59946b (before structured checking)
+Model: Xenova/nli-deberta-v3-xsmall, pinned revision in MODEL_CARD.md
+
+The deployed model loaded and ran. Nine of nine fixed diagnostic pairs were
+classified as expected. This is a smoke test, not an accuracy benchmark.
+
+Live retrieval regression:
+Claim: Sydney is the capital of Australia.
+Result: Conflicting evidence (5 passages, 3 Wikipedia pages, 1 publisher).
+The model incorrectly predicted support from the Sydney and Greater Sydney
+introductions describing the state capital of New South Wales. It predicted
+contradiction from a passage about the national capital being at least 100
+miles from Sydney. This is scope confusion, not a real factual disagreement.
+
+Observed source revisions:
+https://en.wikipedia.org/w/index.php?oldid=1376399713
+https://en.wikipedia.org/w/index.php?oldid=1349503380
+https://en.wikipedia.org/w/index.php?oldid=1375460887
+
+Fix: explicit capital/head-of-government claims now compare live structured
+entity records. Other model predictions remain experimental. This regression
+must not be represented as corrected by retraining; no training occurred.
