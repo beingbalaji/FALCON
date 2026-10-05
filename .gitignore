@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.venv/
+var/
+evaluation/runs/
+evaluation/data/fever_dev.jsonl
+.pytest_cache/

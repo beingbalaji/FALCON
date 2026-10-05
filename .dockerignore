@@ -1,0 +1,9 @@
+.git
+var
+evaluation/runs
+evaluation/data/fever_dev.jsonl
+legacy-js
+tests
+__pycache__
+*.pyc
+.venv

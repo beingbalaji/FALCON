@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% set v = r.verdict %}
+{% set s = VERDICT_STYLE.get(v.label, VERDICT_STYLE['NOT ENOUGH INFO']) %}
+{% block title %}{{ s.word }}: “{{ r.claim }}” — FALXON{% endblock %}
+{% block head %}
+<meta property="og:title" content="{{ s.word }}: “{{ r.claim }}”">
+<meta property="og:description" content="{{ v.reason }}">
+{% endblock %}
+{% block content %}
+<article class="report">
+  <header class="report-head">
+    <p class="kicker">Fact Check</p>
+    <h1 class="headline claim">“{{ r.claim }}”</h1>
+    <div class="stamp tone-{{ s.tone }}" aria-label="Verdict: {{ s.word }}">
+      <span class="stamp-word">{{ s.word }}</span>
+      {% if v.confidence %}<span class="stamp-conf">{{ v.confidence | pct }} model confidence</span>{% endif %}
+    </div>
+    <p class="dek">{{ s.dek }}</p>
+    <p class="byline">By the FALXON fact desk · <time>{{ r.checked_at | date }}</time> · {{ r.timings.total }} seconds · method: {{ 'Wikidata record' if v.method == 'structured' else 'Wikipedia evidence + NLI' }}</p>
+  </header>
+
+  <div class="report-body">
+    <div class="col-main">
+      <h2 class="h2">The verdict</h2>
+      <p class="lede">{{ v.reason }}</p>
+
+      {% if r.warnings %}
+      <div class="notice">{% for w in r.warnings %}<p>{{ w }}</p>{% endfor %}</div>
+      {% endif %}
+
+      {% if r.structured and r.structured.source %}
+      <h2 class="h2">What the record says</h2>
+      <figure class="record">
+        <blockquote>{{ r.structured.source.text }}</blockquote>
+        <figcaption>{{ r.structured.note }} <a href="{{ r.structured.source.revision_url }}" target="_blank" rel="noopener">Wikidata, revision used</a>{% if r.structured.source.updated_at %} · updated {{ r.structured.source.updated_at | date }}{% endif %}</figcaption>
+      </figure>
+      {% endif %}
+
+      {% if r.evidence %}
+      <h2 class="h2">The evidence</h2>
+      <p class="muted small">The passages FALXON judged most relevant, in order, with how the model read each one.</p>
+      <ol class="evidence">
+        {% for e in r.evidence %}
+        <li class="ev {{ 'decisive' if e.decisive }}">
+          <div class="ev-head">
+            <span class="ev-stance stance-{{ e.stance }}">{{ {'entailment':'Supports','contradiction':'Contradicts','neutral':'Not decisive'}[e.stance] }}</span>
+            {% if e.decisive %}<span class="ev-key">Key evidence</span>{% endif %}
+          </div>
+          <blockquote>{{ e.text }}</blockquote>
+          <div class="ev-meta">
+            <a href="{{ e.revision_url }}" target="_blank" rel="noopener">{{ e.title }}</a> · Wikipedia{% if e.updated_at %} · revised {{ e.updated_at | date }}{% endif %}
+          </div>
+          <div class="ev-bars" aria-label="Model scores">
+            <span style="--w: {{ (e.nli.entailment * 100) | round(1) }}%" class="bar b-true" title="Supports {{ e.nli.entailment | pct }}"></span>
+            <span style="--w: {{ (e.nli.neutral * 100) | round(1) }}%" class="bar b-unknown" title="Neutral {{ e.nli.neutral | pct }}"></span>
+            <span style="--w: {{ (e.nli.contradiction * 100) | round(1) }}%" class="bar b-false" title="Contradicts {{ e.nli.contradiction | pct }}"></span>
+          </div>
+          <div class="ev-legend">supports {{ e.nli.entailment | pct }} · neutral {{ e.nli.neutral | pct }} · contradicts {{ e.nli.contradiction | pct }}</div>
+        </li>
+        {% endfor %}
+      </ol>
+      {% endif %}
+    </div>
+
+    <aside class="col-side">
+      {% if r.evidence %}
+      {% set n_s = r.evidence | selectattr('stance', 'equalto', 'entailment') | list | length %}
+      {% set n_c = r.evidence | selectattr('stance', 'equalto', 'contradiction') | list | length %}
+      {% set n_n = r.evidence | length - n_s - n_c %}
+      <section class="box">
+        <p class="kicker">How the passages read</p>
+        <div class="meter">
+          <span class="seg b-true" style="flex: {{ n_s }}"></span>
+          <span class="seg b-unknown" style="flex: {{ n_n }}"></span>
+          <span class="seg b-false" style="flex: {{ n_c }}"></span>
+        </div>
+        <ul class="legend">
+          <li><i class="b-true"></i>{{ n_s }} support{{ 's' if n_s == 1 else '' }} the claim</li>
+          <li><i class="b-unknown"></i>{{ n_n }} not decisive</li>
+          <li><i class="b-false"></i>{{ n_c }} contradict{{ 's' if n_c == 1 else '' }} the claim</li>
+        </ul>
+        <p class="caption">Out of the {{ r.evidence | length }} most relevant passages. A verdict needs at least one clear, highly relevant passage; most passages are usually background.</p>
+      </section>
+      {% endif %}
+
+      {% if r.sources %}
+      <section class="box">
+        <p class="kicker">Sources consulted</p>
+        <ol class="sources">
+          {% for src in r.sources %}
+          <li><a href="{{ src.revision_url }}" target="_blank" rel="noopener">{{ src.title }}</a><span>{{ src.publisher }}{% if src.updated_at %} · {{ src.updated_at | date }}{% endif %}</span></li>
+          {% endfor %}
+        </ol>
+      </section>
+      {% endif %}
+
+      <section class="box">
+        <p class="kicker">Share &amp; export</p>
+        <div class="actions">
+          <button class="btn ghost" data-copy="{{ request.url }}">Copy link</button>
+          <a class="btn ghost" href="/api/v1/reports/{{ row.id }}" download="falxon-{{ row.id }}.json">Download JSON</a>
+          <a class="btn" href="/">Check another claim</a>
+        </div>
+      </section>
+
+      <section class="box note">
+        <p class="kicker">About this check</p>
+        <p>Automated verdict. Wikipedia and Wikidata are community-edited and can be incomplete or out of date; the model can misread a passage. Read the evidence before relying on the result.</p>
+        <p class="muted small">Models: {{ r.models.nli }}{% if r.models.reranker %}; {{ r.models.reranker }}{% endif %}.</p>
+      </section>
+    </aside>
+  </div>
+</article>
+{% endblock %}
