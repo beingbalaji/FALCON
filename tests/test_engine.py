@@ -65,17 +65,37 @@ def test_structured_verdicts(claim, label):
     assert structured.check(claim)["label"] == label
 
 
+@pytest.mark.parametrize("claim,label", [
+    ("The Eiffel Tower is located in Paris.", SUPPORTED),
+    ("The Eiffel Tower is located in Paris, France.", SUPPORTED),
+    ("The Eiffel Tower is in Europe.", SUPPORTED),
+    ("The Eiffel Tower is located in London.", REFUTED),
+    ("The Eiffel Tower is located in Japan.", REFUTED),
+    ("The Eiffel Tower is not located in Japan.", SUPPORTED),
+    ("The Eiffel Tower is located in Champ de Mars.", NEI),   # not a city/country: no closed-world refutation
+    ("The Eiffel Tower is located only in Europe.", NEI),     # exclusivity needs text evidence
+])
+def test_structured_location(claim, label):
+    assert structured.parse(claim).kind == "location"
+    assert structured.check(claim)["label"] == label
+
+
+def test_location_parse_ignores_non_places():
+    assert structured.parse("The Eiffel Tower is the tallest structure in Paris.") is None
+    assert structured.parse("The film is set in 1999.") is None
+
+
 def test_structured_unknown_entity_abstains():
     assert structured.check("Atlantis is the capital of Narnia.")["label"] == NEI
 
 
 def test_pipeline_text_evidence_supports_and_refutes():
-    ok = pipeline.verify("The Eiffel Tower is located in Paris.")
+    ok = pipeline.verify("The Eiffel Tower stands in Paris.")
     assert ok["verdict"]["label"] == SUPPORTED
     assert any(e["decisive"] and "Champ de Mars" in e["text"] for e in ok["evidence"])
     assert ok["sources"][0]["title"] == "Eiffel Tower"
 
-    bad = pipeline.verify("The Eiffel Tower is located in London.")
+    bad = pipeline.verify("The Eiffel Tower stands in London.")
     assert bad["verdict"]["label"] == REFUTED
 
 

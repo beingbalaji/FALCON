@@ -34,14 +34,25 @@ def _time_claim(year):
 
 
 WIKIDATA = {
-    "Q408": _entity("Q408", "Australia", {"P36": [_item_claim("P36", "Q3114")]}),
+    "Q408": _entity("Q408", "Australia", {"P36": [_item_claim("P36", "Q3114")],
+                                          "P31": [_item_claim("P31", "Q3624078")]}),
+    "Q243": _entity("Q243", "Eiffel Tower", {"P131": [_item_claim("P131", "Q259")], "P17": [_item_claim("P17", "Q142")]}),
+    "Q259": _entity("Q259", "7th arrondissement of Paris", {"P131": [_item_claim("P131", "Q90")]}),
+    "Q90": _entity("Q90", "Paris", {"P131": [_item_claim("P131", "Q142")], "P31": [_item_claim("P31", "Q515")]}),
+    "Q142": _entity("Q142", "France", {"P30": [_item_claim("P30", "Q46")], "P31": [_item_claim("P31", "Q3624078")]}),
+    "Q46": _entity("Q46", "Europe", {"P31": [_item_claim("P31", "Q5107")]}),
+    "Q84": _entity("Q84", "London", {"P31": [_item_claim("P31", "Q515")]}),
+    "Q17": _entity("Q17", "Japan", {"P31": [_item_claim("P31", "Q3624078")]}),
+    "Q9999": _entity("Q9999", "Champ de Mars", {"P31": [_item_claim("P31", "Q22698")]}),
     "Q3114": _entity("Q3114", "Canberra"),
     "Q3130": _entity("Q3130", "Sydney"),
     "Q41567": _entity("Q41567", "Hamlet", {"P50": [_item_claim("P50", "Q692")]}),
     "Q692": _entity("Q692", "William Shakespeare", aliases=("Shakespeare",)),
     "Q937": _entity("Q937", "Albert Einstein", {"P31": [_item_claim("P31", "Q5")], "P569": [_time_claim(1879)]}),
 }
-SEARCH = {"australia": ["Q408"], "hamlet": ["Q41567"], "albert einstein": ["Q937"]}
+SEARCH = {"australia": ["Q408"], "hamlet": ["Q41567"], "albert einstein": ["Q937"], "eiffel tower": ["Q243"],
+          "paris": ["Q90"], "france": ["Q142"], "europe": ["Q46"], "london": ["Q84"], "japan": ["Q17"],
+          "champ de mars": ["Q9999"]}
 
 
 def fake_get_json(url, params, use_cache=True):

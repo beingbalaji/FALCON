@@ -48,7 +48,7 @@
   <h2 class="h2">The pipeline</h2>
   <ol class="steps">
     <li><strong>Claim intake.</strong> The input is normalised and validated. For articles, a check-worthiness scorer picks out statements that name entities, numbers or dates and avoids opinion and hedging.</li>
-    <li><strong>Structured records.</strong> Claims about capitals, heads of government and state, authorship, founding years and birth years are parsed and compared with Wikidata entity IDs and their current statements. If the record is ambiguous, FALXON abstains instead of guessing.</li>
+    <li><strong>Structured records.</strong> Claims about capitals, heads of government and state, authorship, founding and birth years, and where a place is located are parsed and compared with Wikidata entity IDs and their current statements. If the record is ambiguous, FALXON abstains instead of guessing.</li>
     <li><strong>Retrieval.</strong> Search queries are built from the subject phrase, named entities and the claim with negations removed, then sent to the Wikipedia search API. Up to {{ settings.max_pages }} articles are fetched at a pinned revision, split into single sentences and two-sentence windows.</li>
     <li><strong>Reranking.</strong> <code>{{ settings.rerank_model }}</code>, a cross-encoder trained for passage relevance, scores every candidate against the claim. The best {{ settings.rerank_keep }} are kept, with at most three from any one article.</li>
     <li><strong>Natural language inference.</strong> <code>{{ settings.nli_model }}</code>, trained on MNLI, FEVER-NLI and ANLI, reads the top {{ settings.nli_keep }} passages as premises and the claim as the hypothesis.</li>

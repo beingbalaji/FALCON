@@ -41,3 +41,22 @@ def test_full_benchmark_offline(tmp_path, monkeypatch):
     assert report["headline"]["accuracy"] == 1.0
     assert report["datasets"][1]["accuracy"] == 1.0
     assert (tmp_path / "runs" / "fever_test_9.jsonl").exists()
+
+
+def test_quick_falcon60_updates_report(tmp_path, monkeypatch):
+    data, reports = tmp_path / "data", tmp_path / "reports"
+    data.mkdir()
+    reports.mkdir()
+    (data / "falcon60.csv").write_text("claim,label\nThe Eiffel Tower is located in London.,REFUTED\n"
+                                       "William Shakespeare wrote Hamlet.,SUPPORTED\n")
+    (reports / "benchmark.json").write_text(json.dumps({
+        "headline": {}, "baselines": [], "run": {"date": "2026-10-06", "engine": "x", "nli_model": "x",
+                                                  "rerank_model": "x", "thresholds": {}},
+        "datasets": [{"dataset": "FALCON-60", "accuracy": 0.1}],
+    }))
+    monkeypatch.setattr(bench, "DATA", data)
+    monkeypatch.setattr(bench, "RUNS", tmp_path / "runs")
+    monkeypatch.setattr(bench, "REPORTS", reports)
+    bench.main(["falcon60"])
+    report = json.loads((reports / "benchmark.json").read_text())
+    assert [d["accuracy"] for d in report["datasets"]] == [1.0]

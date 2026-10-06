@@ -26,6 +26,7 @@ class Relation:
     holder: str        # the entity that holds the property (e.g. "Australia")
     negated: bool
     year: int | None = None
+    exclusive: bool = False  # "only in" / "entirely in"
 
 
 _PATTERNS = [
@@ -36,6 +37,11 @@ _PATTERNS = [
 _AUTHOR = re.compile(r"^(.+?) (did not write|didn't write|wrote|is the author of|authored) (.+?)\.?$", re.I)
 _INCEPTION = re.compile(r"^(?:the )?(.+?) was (not )?(?:founded|established|formed|created) in (\d{3,4})\.?$", re.I)
 _BIRTH = re.compile(r"^(.+?) was (not )?born in (\d{3,4})\.?$", re.I)
+_LOCATION = re.compile(
+    r"^(?:the )?(.+?) (?:is|are) (not )?(?:(?:located|situated|found|based|built) )?(entirely |only |wholly )?in (?:the )?(.+?)\.?$",
+    re.I,
+)
+_FLOWS = re.compile(r"^(?:the )?(.+?) (?:flows|runs) (not )?(entirely |only )?through (?:the )?(.+?)\.?$", re.I)
 _COMPLEX = re.compile(r"\b(and|or|because|since|before|after|until|while|although|also)\b", re.I)
 
 
@@ -59,6 +65,10 @@ def parse(claim: str) -> Relation | None:
     m = _BIRTH.match(c)
     if m:
         return Relation("birth", "P569", "", m.group(1).strip(), bool(m.group(2)), int(m.group(3)))
+    m = _LOCATION.match(c) or _FLOWS.match(c)
+    if m and not re.search(r"\d", m.group(4)):
+        return Relation("location", "P131", m.group(4).strip(), m.group(1).strip(), bool(m.group(2)),
+                        exclusive=bool(m.group(3)))
     return None
 
 
@@ -207,6 +217,9 @@ def _check(rel: Relation, now: datetime) -> dict:
         label = "SUPPORTED" if matched != rel.negated else "REFUTED"
         return _result(label, rel, f"Wikidata lists the author of {_label(work)} as {', '.join(values)}.", work, values)
 
+    if rel.kind == "location":
+        return _check_location(rel)
+
     # inception / birth year
     accept = (lambda e: HUMAN in _values(e, "P31")) if rel.kind == "birth" else (lambda e: bool(e.get("claims", {}).get("P571")))
     entity = _resolve(rel.holder, accept)
@@ -222,3 +235,69 @@ def _check(rel: Relation, now: datetime) -> dict:
     label = "SUPPORTED" if matched != rel.negated else "REFUTED"
     what = "was born" if rel.kind == "birth" else "was founded"
     return _result(label, rel, f"Wikidata says {_label(entity)} {what} in {', '.join(values)}.", entity, values)
+
+
+# --- "X is (located) in Y" -----------------------------------------------------------------
+_PLACE_PROPS = ("P131", "P17", "P30", "P276", "P706")  # admin territory, country, continent, location, terrain
+_COUNTRY_TYPES = {"Q6256", "Q3624078", "Q7275"}             # country, sovereign state, state
+_CONTINENT_TYPES = {"Q5107"}
+_CITY_TYPES = {"Q515", "Q1637706", "Q5119", "Q174530", "Q200250", "Q1093829", "Q1549591"}
+
+
+def _names(e: dict) -> set[str]:
+    return {_norm(_label(e))} | {_norm(a["value"]) for a in e.get("aliases", {}).get("en", [])}
+
+
+def _place_closure(entity: dict, depth: int = 6, limit: int = 80) -> dict[str, dict]:
+    """Every place `entity` lies in, following admin-territory, country and continent links."""
+    seen = {entity["id"]: entity}
+    frontier = [entity]
+    for _ in range(depth):
+        nxt = []
+        for e in frontier:
+            for prop in _PLACE_PROPS:
+                nxt += [i for i in _values(e, prop) if i not in seen]
+        nxt = list(dict.fromkeys(nxt))[: max(0, limit - len(seen))]
+        if not nxt:
+            break
+        fetched = _get(nxt)
+        seen.update(fetched)
+        frontier = list(fetched.values())
+    return seen
+
+
+def _check_location(rel: Relation) -> dict:
+    place = _resolve(rel.holder, lambda e: any(e.get("claims", {}).get(p) for p in ("P131", "P17", "P30")))
+    if not place:
+        return _result("NOT ENOUGH INFO", rel, f"Could not identify the place “{rel.holder}” in Wikidata.")
+    closure = _place_closure(place)
+    containers = [e for eid, e in closure.items() if eid != place["id"]]
+    shown = [_label(e) for e in containers if _label(e)][:6]
+    # "Paris, France" means every part must contain the place.
+    parts = [_norm(x) for x in rel.subject.split(",") if x.strip()]
+    inside = all(any(part in _names(e) for e in containers) for part in parts)
+    where = f"Wikidata places {_label(place)} in {', '.join(shown) or 'no recorded territory'}."
+    if inside:
+        if rel.exclusive:
+            return _result("NOT ENOUGH INFO", rel, where + " Whether it lies only there needs text evidence.", place, shown)
+        return _result("REFUTED" if rel.negated else "SUPPORTED", rel, where, place, shown)
+
+    # Not found. Only conclude "false" when the claimed place is a country, continent or city
+    # and the record is detailed enough at that level to make absence meaningful.
+    raw_parts = [x.strip() for x in rel.subject.split(",") if x.strip()]
+    missing = [x for x in raw_parts if not any(_norm(x) in _names(e) for e in containers)]
+    other = _resolve(missing[0]) if missing else None
+    if not other:
+        return _result("NOT ENOUGH INFO", rel, where, place, shown)
+    types = set(_values(other, "P31"))
+    has_country = any(set(_values(e, "P31")) & _COUNTRY_TYPES for e in containers) or bool(_values(place, "P17"))
+    has_continent = any(_values(e, "P30") for e in closure.values())
+    decisive = (
+        (types & _COUNTRY_TYPES and has_country)
+        or (types & _CONTINENT_TYPES and has_continent)
+        or (types & _CITY_TYPES and bool(_values(place, "P131")))
+    )
+    if not decisive:
+        return _result("NOT ENOUGH INFO", rel, where, place, shown)
+    return _result("SUPPORTED" if rel.negated else "REFUTED", rel,
+                   where + f" It is not recorded as being in {_label(other)}.", place, shown)

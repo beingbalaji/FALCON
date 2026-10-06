@@ -22,7 +22,7 @@ Everything is free and open: no paid APIs, no API keys, and every model runs loc
 
 ```mermaid
 flowchart LR
-    A[Claim] --> B{Structured relation?<br/>capital · leader · author · year}
+    A[Claim] --> B{Structured relation?<br/>capital · leader · author · year · location}
     B -- yes --> C[Wikidata entity + statement comparison]
     C -- decisive --> V[Verdict + citation]
     C -- ambiguous --> D
@@ -36,7 +36,7 @@ flowchart LR
 ```
 
 1. **Claim intake** (`falxon/claims.py`) normalises the input. For articles, a check-worthiness scorer keeps sentences with entities, numbers and declarative verbs, and drops opinion and hedging.
-2. **Structured records** (`falxon/structured.py`) handle claims that free-text models get wrong: capitals, heads of government and state, authorship, founding and birth years. Entity IDs are compared, not strings. Ambiguity leads to abstention.
+2. **Structured records** (`falxon/structured.py`) handle claims that free-text models get wrong: capitals, heads of government and state, authorship, founding and birth years, and locations ("X is in Y", checked by walking Wikidata's territory, country and continent links). Entity IDs are compared, not strings. Ambiguity leads to abstention.
 3. **Retrieval** (`falxon/retrieval/wikipedia.py`) builds queries from the subject phrase, named entities and the claim with negations removed, so a false claim isn't matched only to similarly worded text. It merges results, demotes disambiguated look-alikes ("Eiffel Tower (Paris, Texas)") and fetches whole articles at a pinned revision.
 4. **Reranking** (`falxon/models.py`) scores every candidate passage with a cross-encoder and keeps the best eight, at most three per article.
 5. **Inference**: the NLI model reads each top passage (premise) against the claim (hypothesis).
@@ -50,7 +50,8 @@ Run the benchmark yourself (see below). It writes `reports/benchmark.md` and `re
 |---|---|---|
 | FALCON v2: TF-IDF + logistic regression | LIAR, 6-class | 26.3% |
 | FALCON v2: same model, true vs. false | LIAR, binary (majority class 56.7%) | 62.0% |
-| **FALXON v5** | FEVER 1.0 dev, 3-class, held-out split | *see `reports/benchmark.md` after running* |
+| **FALXON v5** | FALCON-60 hand-written claims, 3-class | **78.3%** (macro F1 78.7%; 88.6% precision when decisive; run on 2026-10-06, before location checks were added) |
+| **FALXON v5** | FEVER 1.0 dev, 3-class, held-out split | *see `reports/benchmark.md`* |
 
 For context, published FEVER label-accuracy results with Wikipedia retrieval range from about 68% for the 2018 shared-task winner to about 80% for later BERT-era systems. FALXON uses off-the-shelf models with no FEVER-specific retrieval training, and it runs on a laptop CPU.
 

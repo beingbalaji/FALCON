@@ -6,6 +6,7 @@ Usage (from the repository root):
     python -m evaluation.bench run --n 600          # only collect pipeline outputs (resumable)
     python -m evaluation.bench calibrate            # tune thresholds on the calibration split
     python -m evaluation.bench report               # score the held-out split, write reports/
+    python -m evaluation.bench falcon60             # quick re-check of the 60 FALCON claims (~5 min)
 
 Protocol
 - FEVER 1.0 shared-task dev set (Thorne et al., 2018), labels SUPPORTS / REFUTES / NOT ENOUGH INFO.
@@ -230,14 +231,40 @@ def _markdown(b: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def quick_falcon60() -> dict:
+    """Re-run only the 60 FALCON claims from scratch and update that row of the report."""
+    cache = RUNS / "falcon60.jsonl"
+    if cache.exists():
+        cache.unlink()
+    records = run(load_falcon60(), "falcon60")
+    m = metrics([r["label"] for r in records], [predict(r, load_thresholds()) for r in records])
+    m.update(name="FALCON-60 hand-written claims",
+             description="The 60 general-knowledge claims written for FALCON v4 (20 per label).", dataset="FALCON-60")
+    path = REPORTS / "benchmark.json"
+    if path.exists():
+        bench = json.loads(path.read_text())
+        bench["datasets"] = [d for d in bench["datasets"] if d.get("dataset") != "FALCON-60"] + [m]
+        path.write_text(json.dumps(bench, indent=2) + "\n")
+        (REPORTS / "benchmark.md").write_text(_markdown(bench))
+    print(f"FALCON-60: accuracy {m['accuracy']:.1%}, macro F1 {m['macro_f1']:.1%}")
+    for t, row in zip(LABELS, m["confusion"]["matrix"]):
+        print(f"  truth {t:<16} → {dict(zip(LABELS, row))}")
+    wrong = [r for r in records if predict(r, load_thresholds()) != r["label"]]
+    for r in wrong:
+        print(f"  ✗ {r['claim']}  (truth {r['label']}, got {predict(r, load_thresholds())})")
+    return m
+
+
 # ---------------------------------------------------------------- CLI
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("command", choices=["run", "calibrate", "report", "all"])
+    ap.add_argument("command", choices=["run", "calibrate", "report", "all", "falcon60"])
     ap.add_argument("--n", type=int, default=600, help="FEVER claims to sample (balanced; 1/3 used for calibration)")
     ap.add_argument("--skip-falcon60", action="store_true")
     args = ap.parse_args(argv)
 
+    if args.command == "falcon60":
+        return quick_falcon60()
     calib_items, test_items = fever_sample(args.n)
     if args.command in ("run", "all"):
         run(calib_items, f"fever_calib_{args.n}")
