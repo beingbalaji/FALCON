@@ -33,6 +33,21 @@ def _time_claim(year):
     return {"rank": "normal", "mainsnak": {"snaktype": "value", "datavalue": {"value": {"time": f"+{year}-00-00T00:00:00Z"}}}}
 
 
+def _qty(prop, amount, unit="Q828224"):
+    return {"rank": "normal", "mainsnak": {"snaktype": "value", "property": prop, "datavalue": {
+        "value": {"amount": f"+{amount}", "unit": f"http://www.wikidata.org/entity/{unit}"}}}}
+
+
+def _planet(eid, label, radius_km, axis_au, star="Q525"):
+    return _entity(eid, label, {"P31": [_item_claim("P31", "Q634")], "P397": [_item_claim("P397", star)],
+                                "P2120": [_qty("P2120", radius_km)], "P2233": [_qty("P2233", axis_au, "Q1811")]})
+
+
+def _ocean(eid, label, area_km2):
+    return _entity(eid, label, {"P31": [_item_claim("P31", "Q9430")], "P361": [_item_claim("P361", "Q1239")],
+                                "P2046": [_qty("P2046", area_km2, "Q712226")]})
+
+
 WIKIDATA = {
     "Q408": _entity("Q408", "Australia", {"P36": [_item_claim("P36", "Q3114")],
                                           "P31": [_item_claim("P31", "Q3624078")]}),
@@ -49,14 +64,40 @@ WIKIDATA = {
     "Q41567": _entity("Q41567", "Hamlet", {"P50": [_item_claim("P50", "Q692")]}),
     "Q692": _entity("Q692", "William Shakespeare", aliases=("Shakespeare",)),
     "Q937": _entity("Q937", "Albert Einstein", {"P31": [_item_claim("P31", "Q5")], "P569": [_time_claim(1879)]}),
+    # Astronomy: planets orbit the Sun, which is part of the Solar System; an exoplanet must not count.
+    "Q634": _entity("Q634", "planet"),
+    "Q525": _entity("Q525", "Sun", {"P361": [_item_claim("P361", "Q544")]}),
+    "Q544": _entity("Q544", "Solar System"),
+    "Q308": _planet("Q308", "Mercury", 2439.7, 0.387),
+    "Q313": _planet("Q313", "Venus", 6051.8, 0.723),
+    "Q2": _planet("Q2", "Earth", 6371, 1.0),
+    "Q111": _planet("Q111", "Mars", 3389.5, 1.524),
+    "Q319": _planet("Q319", "Jupiter", 69911, 5.20),
+    "Q332": _planet("Q332", "Neptune", 24622, 30.07),
+    "Q9001": _planet("Q9001", "HD 100546 b", 490000, 53, star="Q9002"),
+    "Q405": _entity("Q405", "Moon", {"P31": [_item_claim("P31", "Q2537")], "P397": [_item_claim("P397", "Q2")]}),
+    "Q9430": _entity("Q9430", "ocean"),
+    "Q98": _ocean("Q98", "Pacific Ocean", 165250000),
+    "Q97": _ocean("Q97", "Atlantic Ocean", 106460000),
+    "Q788": _ocean("Q788", "Arctic Ocean", 14060000),
+    "Q43514": _entity("Q43514", "theory of relativity", {"P61": [_item_claim("P61", "Q937")]}),
 }
+INSTANCES = {"Q634": ["Q308", "Q313", "Q2", "Q111", "Q319", "Q332", "Q9001"], "Q9430": ["Q98", "Q97", "Q788"]}
 SEARCH = {"australia": ["Q408"], "hamlet": ["Q41567"], "albert einstein": ["Q937"], "eiffel tower": ["Q243"],
           "paris": ["Q90"], "france": ["Q142"], "europe": ["Q46"], "london": ["Q84"], "japan": ["Q17"],
-          "champ de mars": ["Q9999"]}
+          "champ de mars": ["Q9999"], "planet": ["Q634"], "sun": ["Q525"], "solar system": ["Q544"],
+          "mercury": ["Q308"], "venus": ["Q313"], "earth": ["Q2"], "mars": ["Q111"], "jupiter": ["Q319"],
+          "neptune": ["Q332"], "moon": ["Q405"], "ocean": ["Q9430"], "pacific ocean": ["Q98"],
+          "atlantic ocean": ["Q97"], "arctic ocean": ["Q788"], "theory of relativity": ["Q43514"],
+          "william shakespeare": ["Q692"]}
 
 
 def fake_get_json(url, params, use_cache=True):
     if "wikidata" in url:
+        if params["action"] == "query":
+            prop, _, qid = params["srsearch"].removeprefix("haswbstatement:").partition("=")
+            hits = INSTANCES.get(qid, []) if prop == "P31" else []
+            return {"query": {"search": [{"title": h} for h in hits], "searchinfo": {"totalhits": len(hits)}}}
         if params["action"] == "wbsearchentities":
             return {"search": [{"id": i} for i in SEARCH.get(params["search"].lower(), [])]}
         return {"entities": {i: WIKIDATA[i] for i in params["ids"].split("|") if i in WIKIDATA}}

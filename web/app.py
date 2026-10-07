@@ -89,7 +89,7 @@ async def _check_claim(claim: str) -> str:
     from falxon.claims import validate_claim
 
     normalized = validate_claim(claim_key)
-    cached = store.recent_claim(normalized)
+    cached = store.recent_claim(normalized, engine=pipeline.ENGINE_VERSION)
     if cached:
         return cached
     report = await run_in_threadpool(pipeline.verify, normalized)

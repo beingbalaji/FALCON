@@ -22,7 +22,7 @@ Everything is free and open: no paid APIs, no API keys, and every model runs loc
 
 ```mermaid
 flowchart LR
-    A[Claim] --> B{Structured relation?<br/>capital · leader · author · year · location}
+    A[Claim] --> B{Structured relation?<br/>capital · leader · author · year · location<br/>size · distance · rank · orbit · discoverer}
     B -- yes --> C[Wikidata entity + statement comparison]
     C -- decisive --> V[Verdict + citation]
     C -- ambiguous --> D
@@ -36,7 +36,7 @@ flowchart LR
 ```
 
 1. **Claim intake** (`falxon/claims.py`) normalises the input. For articles, a check-worthiness scorer keeps sentences with entities, numbers and declarative verbs, and drops opinion and hedging.
-2. **Structured records** (`falxon/structured.py`) handle claims that free-text models get wrong: capitals, heads of government and state, authorship, founding and birth years, and locations ("X is in Y", checked by walking Wikidata's territory, country and continent links). Entity IDs are compared, not strings. Ambiguity leads to abstention.
+2. **Structured records** (`falxon/structured.py`) handle claims that free-text models get wrong: capitals, heads of government and state, authorship, founding and birth years, locations ("X is in Y", checked by walking Wikidata's territory, country and continent links), and comparisons that numbers can settle ("Mars is the largest planet in the Solar System", "Venus is the second planet from the Sun", "Jupiter is closer to the Sun than Mercury"), plus orbits and discoverers. Entity IDs and recorded measurements are compared, not strings. One counterexample is enough to call a superlative false; calling it true requires the whole comparison set. Ambiguity leads to abstention.
 3. **Retrieval** (`falxon/retrieval/wikipedia.py`) builds queries from the subject phrase, named entities and the claim with negations removed, so a false claim isn't matched only to similarly worded text. It merges results, demotes disambiguated look-alikes ("Eiffel Tower (Paris, Texas)") and fetches whole articles at a pinned revision.
 4. **Reranking** (`falxon/models.py`) scores every candidate passage with a cross-encoder and keeps the best eight, at most three per article.
 5. **Inference**: the NLI model reads each top passage (premise) against the claim (hypothesis).

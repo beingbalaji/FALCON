@@ -51,13 +51,14 @@ def get(check_id: str) -> dict | None:
     return {**dict(row), "payload": json.loads(row["payload"])}
 
 
-def recent_claim(title: str, hours: int = 24) -> str | None:
+def recent_claim(title: str, hours: int = 24, engine: str | None = None) -> str | None:
+    """A recent report for the same claim, made by the same engine version when one is given."""
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat(timespec="seconds")
     with _conn() as conn:
         row = conn.execute(
             "SELECT id FROM checks WHERE kind='claim' AND title=? AND created_at>=? "
-            "AND payload NOT LIKE '%could not%' ORDER BY created_at DESC LIMIT 1",
-            (title, cutoff),
+            "AND payload NOT LIKE '%could not%' AND (? IS NULL OR payload LIKE ?) ORDER BY created_at DESC LIMIT 1",
+            (title, cutoff, engine, f'%"engine": "{engine}"%'),
         ).fetchone()
     return row["id"] if row else None
 

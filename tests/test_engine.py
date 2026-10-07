@@ -85,6 +85,49 @@ def test_location_parse_ignores_non_places():
     assert structured.parse("The film is set in 1999.") is None
 
 
+@pytest.mark.parametrize("claim,label", [
+    ("Mars is the largest planet in the Solar System.", REFUTED),
+    ("Earth is the largest planet in the Solar System.", REFUTED),
+    ("Jupiter is the largest planet in the Solar System.", SUPPORTED),   # the exoplanet is outside the context
+    ("Jupiter is not the largest planet in the Solar System.", REFUTED),
+    ("Jupiter is the largest planet.", NEI),                             # implicit context can refute, never prove
+    ("Mars is the largest planet.", REFUTED),
+    ("Venus is the farthest planet from the Sun.", REFUTED),
+    ("Neptune is the farthest planet from the Sun.", SUPPORTED),
+    ("Mercury is the closest planet to the Sun.", SUPPORTED),
+    ("The Pacific Ocean is the smallest ocean on Earth.", REFUTED),
+    ("The Arctic Ocean is the smallest ocean on Earth.", SUPPORTED),
+    ("Venus is the second planet from the Sun.", SUPPORTED),
+    ("Mars is the second planet from the Sun.", REFUTED),
+    ("Neptune is the second largest planet in the Solar System.", SUPPORTED),
+    ("Jupiter is closer to the Sun than Mercury.", REFUTED),
+    ("Mercury is closer to the Sun than Jupiter.", SUPPORTED),
+    ("Jupiter is larger than Earth.", SUPPORTED),
+    ("The Sun revolves around the Earth.", REFUTED),
+    ("The Earth orbits the Sun.", SUPPORTED),
+    ("The Moon orbits the Earth.", SUPPORTED),
+    ("William Shakespeare developed the theory of relativity.", REFUTED),
+    ("Albert Einstein developed the theory of relativity.", SUPPORTED),
+])
+def test_structured_measures(claim, label):
+    result = structured.check(claim)
+    assert result["label"] == label, result["note"]
+    if label != NEI:
+        assert result["source"]["publisher"] == "Wikidata"
+
+
+def test_measure_parse():
+    from falxon import measures
+
+    m = measures.parse("Venus is the farthest planet from the Sun.")
+    assert (m.kind, m.subject, m.stem, m.noun, m.context) == ("superlative", "Venus", "far", "planet", "Sun")
+    m = measures.parse("Jupiter is closer to the Sun than Mercury.")
+    assert (m.kind, m.subject, m.stem, m.context, m.other) == ("comparative", "Jupiter", "close", "Sun", "Mercury")
+    assert measures.parse("The Sun revolves around the Earth.").other == "Earth"
+    assert measures.parse("Prices go up in winter.") is None
+    assert measures.parse("The human heart has two chambers.") is None
+
+
 def test_structured_unknown_entity_abstains():
     assert structured.check("Atlantis is the capital of Narnia.")["label"] == NEI
 
@@ -116,3 +159,12 @@ def test_decide_rules():
     assert decide([weak], t)["label"] == NEI
     assert decide([irrelevant], t)["label"] == NEI
     assert decide([], t)["label"] == NEI
+
+
+def test_report_cache_ignores_older_engines():
+    from falxon import store
+
+    saved = store.save("claim", "Pluto is a planet.", {"engine": "falxon-0.1"}, "REFUTED", 0.9)
+    assert store.recent_claim("Pluto is a planet.") == saved
+    assert store.recent_claim("Pluto is a planet.", engine="falxon-0.1") == saved
+    assert store.recent_claim("Pluto is a planet.", engine="falxon-9.9") is None

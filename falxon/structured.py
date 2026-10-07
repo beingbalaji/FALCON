@@ -20,7 +20,7 @@ HUMAN = "Q5"
 
 @dataclass
 class Relation:
-    kind: str          # "capital", "head_of_government", "head_of_state", "author", "inception", "birth"
+    kind: str          # "capital", "head_of_government", ..., "location"; measures.py adds comparisons
     prop: str
     subject: str       # the value being claimed (e.g. "Sydney")
     holder: str        # the entity that holds the property (e.g. "Australia")
@@ -145,12 +145,26 @@ def check(claim: str) -> dict | None:
     """Return a structured verdict dict, or None when the claim is outside the supported grammar."""
     rel = parse(claim)
     if rel is None:
-        return None
+        from . import measures  # imported here: measures builds on this module
+
+        m = measures.parse(claim)
+        if m is None:
+            return None
+        try:
+            return measures.check(m)
+        except Exception as exc:
+            return _result("NOT ENOUGH INFO", measures._rel(m, "P31"),
+                           f"The structured source could not be reached ({type(exc).__name__}).")
     now = datetime.now(timezone.utc)
     try:
         return _check(rel, now)
     except Exception as exc:  # network or schema surprises: report, never guess
         return _result("NOT ENOUGH INFO", rel, f"The structured source could not be reached ({type(exc).__name__}).")
+
+
+_PROP_NAMES = {"P2046": "area", "P2120": "radius", "P2067": "mass", "P2048": "height", "P2044": "elevation",
+               "P2043": "length", "P4511": "depth", "P1082": "population", "P2233": "average distance from its star",
+               "P397": "orbits", "P61": "discoverer or inventor", "P131": "location"}
 
 
 def _result(label, rel, note, entity=None, values=None, confidence=None):
@@ -162,7 +176,8 @@ def _result(label, rel, note, entity=None, values=None, confidence=None):
             "url": f"https://www.wikidata.org/wiki/{eid}#{rel.prop}",
             "revision_url": f"https://www.wikidata.org/w/index.php?title={eid}&oldid={entity.get('lastrevid')}",
             "publisher": "Wikidata",
-            "text": f"{_label(entity)} — {rel.kind.replace('_', ' ')}: {', '.join(values or []) or 'no usable value'}",
+            "text": f"{_label(entity)} — {_PROP_NAMES.get(rel.prop, rel.kind.replace('_', ' '))}: "
+                    f"{', '.join(values or []) or 'no usable value'}",
             "updated_at": entity.get("modified"),
         }
     return {

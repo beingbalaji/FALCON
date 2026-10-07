@@ -23,7 +23,7 @@
       </div>
       <div class="examples">
         <span>Try:</span>
-        {% for ex in ["The Eiffel Tower is located in London.", "Albert Einstein developed the theory of relativity.", "Sydney is the capital of Australia.", "The Great Wall of China is visible from the Moon with the naked eye.", "William Shakespeare wrote Hamlet."] %}
+        {% for ex in ["The Eiffel Tower is located in London.", "Albert Einstein developed the theory of relativity.", "Sydney is the capital of Australia.", "Mars is the largest planet in the Solar System.", "The Great Wall of China is visible from the Moon with the naked eye.", "William Shakespeare wrote Hamlet."] %}
         <button type="button" class="chip" data-example="{{ ex }}">{{ ex }}</button>
         {% endfor %}
       </div>
@@ -53,13 +53,13 @@
         <li><strong>{{ benchmark.headline.precision_when_decisive | pct }}</strong> precision when it gives a verdict</li>
       </ul>
       {% else %}
-      <p class="caption">Benchmark results appear here after running <code>python -m evaluation.run_fever</code>. <a href="/methodology">Methodology</a></p>
+      <p class="caption">Benchmark results appear here after running <code>python -m evaluation.bench all</code>. <a href="/methodology">Methodology</a></p>
       {% endif %}
     </section>
     <section class="box">
       <p class="kicker">How it works</p>
       <ol class="how">
-        <li><strong>Records.</strong> Capitals, leaders, authors, dates and locations are compared with Wikidata entries directly.</li>
+        <li><strong>Records.</strong> Capitals, leaders, authors, dates, locations, sizes, distances and orbits are compared with Wikidata entries directly.</li>
         <li><strong>Search.</strong> Other claims are searched in Wikipedia, and every sentence is a candidate.</li>
         <li><strong>Rank.</strong> A neural reranker keeps the passages that actually address the claim.</li>
         <li><strong>Weigh.</strong> A DeBERTa model trained on FEVER decides whether each passage supports or contradicts it.</li>

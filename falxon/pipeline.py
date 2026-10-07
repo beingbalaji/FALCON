@@ -15,7 +15,7 @@ from .config import settings
 from .http import fetch_public_page
 from .retrieval import wikipedia
 
-ENGINE_VERSION = "falxon-5.0"
+ENGINE_VERSION = "falxon-5.1"
 PREFILTER_KEEP = 160
 
 
