@@ -73,32 +73,52 @@ WIKIDATA = {
     "Q2": _planet("Q2", "Earth", 6371, 1.0),
     "Q111": {**_planet("Q111", "Mars", 3389.5, 1.524), "aliases": {"en": [{"value": "Red Planet"}]}},
     "Q319": _planet("Q319", "Jupiter", 69911, 5.20),
-    "Q332": _planet("Q332", "Neptune", 24622, 30.07),
+    "Q332": {**_planet("Q332", "Neptune", 24622, 30.07),
+             "claims": {**_planet("Q332", "Neptune", 24622, 30.07)["claims"], "P31": [_item_claim("P31", "Q7001")]}},
+    "Q7001": _entity("Q7001", "ice giant", {"P279": [_item_claim("P279", "Q7002")]}),
+    "Q7002": _entity("Q7002", "giant planet", {"P279": [_item_claim("P279", "Q634")]}),
     "Q9001": _planet("Q9001", "HD 100546 b", 490000, 53, star="Q9002"),
-    "Q405": _entity("Q405", "Moon", {"P31": [_item_claim("P31", "Q2537")], "P397": [_item_claim("P397", "Q2")]}),
+    "Q405": {**_entity("Q405", "Moon", {"P31": [_item_claim("P31", "Q2537")], "P397": [_item_claim("P397", "Q2")]}),
+             "sitelinks": {f"wiki{i}": {} for i in range(200)}},
+    "Q7004": {**_entity("Q7004", "Moon", {"P31": [_item_claim("P31", "Q11424")]}), "sitelinks": {"enwiki": {}}},
     "Q2537": _entity("Q2537", "natural satellite", {"P279": [_item_claim("P279", "Q6999")]}, aliases=("moon",)),
     "Q6999": _entity("Q6999", "astronomical object"),
     "Q9430": _entity("Q9430", "ocean"),
     "Q98": _ocean("Q98", "Pacific Ocean", 165250000),
     "Q97": _ocean("Q97", "Atlantic Ocean", 106460000),
     "Q788": _ocean("Q788", "Arctic Ocean", 14060000),
-    "Q43514": _entity("Q43514", "theory of relativity", {"P61": [_item_claim("P61", "Q937")]}),
+    "Q1239": _ocean("Q1239", "World Ocean", 361000000),
+    "Q7003": _entity("Q7003", "Tethys Ocean", {"P31": [_item_claim("P31", "Q9430")]}),
+    "Q513": {**_entity("Q513", "Mount Everest", {"P17": [_item_claim("P17", "Q837")], "P30": [_item_claim("P30", "Q48")]}),
+             "sitelinks": {f"wiki{i}": {} for i in range(250)}},
+    "Q837": _entity("Q837", "Nepal", {"P31": [_item_claim("P31", "Q3624078")], "P30": [_item_claim("P30", "Q48")]}),
+    "Q48": _entity("Q48", "Asia", {"P31": [_item_claim("P31", "Q5107")]}),
+    "Q7005": {**_entity("Q7005", "Mount Everest", {"P131": [_item_claim("P131", "Q7006")]}), "sitelinks": {"cebwiki": {}}},
+    "Q7006": _entity("Q7006", "Shire of Somewhere", {"P17": [_item_claim("P17", "Q408")]}),
+    "Q43514": _entity("Q43514", "theory of relativity", {"P527": [_item_claim("P527", "Q11455")]}),
+    "Q11455": _entity("Q11455", "general relativity", {"P61": [_item_claim("P61", "Q937")]}),
 }
-INSTANCES = {"Q634": ["Q308", "Q313", "Q2", "Q111", "Q319", "Q332", "Q9001"], "Q9430": ["Q98", "Q97", "Q788"]}
 SEARCH = {"australia": ["Q408"], "hamlet": ["Q41567"], "albert einstein": ["Q937"], "eiffel tower": ["Q243"],
           "paris": ["Q90"], "france": ["Q142"], "europe": ["Q46"], "london": ["Q84"], "japan": ["Q17"],
           "champ de mars": ["Q9999"], "planet": ["Q634"], "sun": ["Q525"], "solar system": ["Q544"],
           "mercury": ["Q308"], "venus": ["Q313"], "earth": ["Q2"], "mars": ["Q111"], "jupiter": ["Q319"],
-          "neptune": ["Q332"], "moon": ["Q405"], "ocean": ["Q9430"], "pacific ocean": ["Q98"],
+          "neptune": ["Q332"], "moon": ["Q7004", "Q405"], "ocean": ["Q9430"], "pacific ocean": ["Q98"],
           "atlantic ocean": ["Q97"], "arctic ocean": ["Q788"], "theory of relativity": ["Q43514"],
-          "william shakespeare": ["Q692"]}
+          "william shakespeare": ["Q692"], "mount everest": ["Q7005", "Q513"], "nepal": ["Q837"], "asia": ["Q48"]}
+
+
+def _ids(entity, prop):
+    return [st["mainsnak"]["datavalue"]["value"].get("id") for st in entity.get("claims", {}).get(prop, [])
+            if isinstance(st["mainsnak"]["datavalue"]["value"], dict)]
 
 
 def fake_get_json(url, params, use_cache=True):
     if "wikidata" in url:
         if params["action"] == "query":
-            prop, _, qid = params["srsearch"].removeprefix("haswbstatement:").partition("=")
-            hits = INSTANCES.get(qid, []) if prop == "P31" else []
+            # haswbstatement filters: space = AND, "|" = OR, as in Wikidata's search engine.
+            filters = [f.removeprefix("haswbstatement:").split("|") for f in params["srsearch"].split()]
+            hits = [eid for eid, e in WIKIDATA.items()
+                    if all(any(rhs in _ids(e, lhs) for lhs, _, rhs in (alt.partition("=") for alt in f)) for f in filters)]
             return {"query": {"search": [{"title": h} for h in hits], "searchinfo": {"totalhits": len(hits)}}}
         if params["action"] == "wbsearchentities":
             return {"search": [{"id": i} for i in SEARCH.get(params["search"].lower(), [])]}

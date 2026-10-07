@@ -76,11 +76,14 @@ def _norm(s: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"^the ", "", s.lower().strip(" .\"'“”"))).strip()
 
 
-def _get(ids: list[str]) -> dict:
+def _get(ids: list[str], sitelinks: bool = False) -> dict:
     if not ids:
         return {}
-    data = get_json(API, {"action": "wbgetentities", "ids": "|".join(ids[:50]), "props": "labels|aliases|claims|info",
+    props = "labels|aliases|claims|info" + ("|sitelinks" if sitelinks else "")
+    data = get_json(API, {"action": "wbgetentities", "ids": "|".join(ids[:50]), "props": props,
                           "languages": "en", "format": "json"})
+    if "error" in data:
+        raise LookupError(f"Wikidata error: {data['error'].get('code', 'unknown')}")
     return data.get("entities", {})
 
 
@@ -93,21 +96,30 @@ def _values(entity: dict, prop: str) -> list[str]:
     return out
 
 
+def prominence(entity: dict) -> int:
+    """How many Wikipedia editions cover the entity: the famous Mount Everest, not a hill of the same name."""
+    return len(entity.get("sitelinks") or {})
+
+
 def _resolve(name: str, accept=lambda e: True) -> dict | None:
-    """Resolve a name to exactly one entity whose label or alias matches it."""
+    """Resolve a name to the most prominent entity whose label or alias matches it exactly.
+
+    Many names are shared ("Moon" is also a film, "Nile River" also a small river elsewhere), so
+    among the exact matches the one covered by the most Wikipedia editions wins.
+    """
     found = get_json(API, {"action": "wbsearchentities", "search": name, "language": "en", "uselang": "en",
-                           "type": "item", "limit": "7", "format": "json"})
+                           "type": "item", "limit": "10", "format": "json"})
+    if "error" in found:
+        raise LookupError(f"Wikidata error: {found['error'].get('code', 'unknown')}")
     ids = [x["id"] for x in found.get("search", [])]
-    entities = [e for e in _get(ids).values() if accept(e)]
+    order = {i: n for n, i in enumerate(ids)}
+    entities = [e for e in _get(ids, sitelinks=True).values() if accept(e)]
     target = _norm(name)
-    by_label = [e for e in entities if _norm(e.get("labels", {}).get("en", {}).get("value", "")) == target]
-    if len(by_label) == 1:
-        return by_label[0]
-    if len(by_label) > 1:
-        # Prefer the most-referenced entity (search order) when labels tie, e.g. countries vs. ships.
-        return by_label[0]
-    by_alias = [e for e in entities if any(_norm(a["value"]) == target for a in e.get("aliases", {}).get("en", []))]
-    return by_alias[0] if len(by_alias) == 1 else None
+    matches = [e for e in entities if target in _names(e)]
+    if not matches:
+        return None
+    # Most Wikipedia editions first; search rank breaks ties.
+    return max(matches, key=lambda e: (prominence(e), -order.get(e.get("id"), 99)))
 
 
 def current_statements(statements: list[dict], now: datetime) -> list[dict]:
@@ -154,12 +166,12 @@ def check(claim: str) -> dict | None:
             return measures.check(m)
         except Exception as exc:
             return _result("NOT ENOUGH INFO", measures._rel(m, "P31"),
-                           f"The structured source could not be reached ({type(exc).__name__}).")
+                           f"The structured source could not be reached ({type(exc).__name__}: {str(exc)[:160]}).")
     now = datetime.now(timezone.utc)
     try:
         return _check(rel, now)
     except Exception as exc:  # network or schema surprises: report, never guess
-        return _result("NOT ENOUGH INFO", rel, f"The structured source could not be reached ({type(exc).__name__}).")
+        return _result("NOT ENOUGH INFO", rel, f"The structured source could not be reached ({type(exc).__name__}: {str(exc)[:160]}).")
 
 
 _PROP_NAMES = {"P2046": "area", "P2120": "radius", "P2067": "mass", "P2048": "height", "P2044": "elevation",

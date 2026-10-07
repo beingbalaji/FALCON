@@ -177,24 +177,80 @@ def _fmt(x: float, prop: str) -> str:
     return f"{x / 1e3:,.4g} km" if x >= 1e4 else f"{x:,.4g} m"
 
 
-def _class_members(class_id: str) -> tuple[list[str], bool]:
-    """Items that are instances of the class or of one of its direct subclasses; and whether the list is complete."""
-    def search(stmt, limit=500):
-        data = s.get_json(s.API, {"action": "query", "list": "search", "srsearch": f"haswbstatement:{stmt}",
-                                  "srnamespace": "0", "srlimit": str(limit), "format": "json"})
-        q = data.get("query", {})
-        ids = [h["title"] for h in q.get("search", []) if re.fullmatch(r"Q\d+", h.get("title", ""))]
-        return ids, q.get("searchinfo", {}).get("totalhits", len(ids)) <= len(ids)
+def _search(query: str, limit: int = 500) -> tuple[list[str], bool]:
+    """Wikidata full-text search with statement filters; returns item ids and whether the list is complete."""
+    data = s.get_json(s.API, {"action": "query", "list": "search", "srsearch": query,
+                              "srnamespace": "0", "srlimit": str(limit), "format": "json"})
+    if "error" in data:
+        raise LookupError(f"Wikidata search error: {data['error'].get('code', 'unknown')}")
+    q = data.get("query", {})
+    ids = [h["title"] for h in q.get("search", []) if re.fullmatch(r"Q\d+", h.get("title", ""))]
+    return ids, q.get("searchinfo", {}).get("totalhits", len(ids)) <= len(ids)
 
-    subclasses, complete = search(f"P279={class_id}", 10)
-    members: list[str] = []
-    for cid in [class_id] + subclasses:
-        ids, done = search(f"P31={cid}")
+
+def _subclasses(class_id: str) -> tuple[list[str], bool]:
+    """The class and its subclasses two levels down (planet -> giant planet -> ice giant)."""
+    first, complete = _search(f"haswbstatement:P279={class_id}", 50)
+    classes = [class_id] + first
+    for c in first[:15]:
+        more, done = _search(f"haswbstatement:P279={c}", 50)
         complete = complete and done
-        members += [i for i in ids if i not in members]
+        classes += [x for x in more if x not in classes]
+    return classes, complete and len(first) <= 15
+
+
+def _instances(classes: list[str], extra: str = "") -> tuple[list[str], bool]:
+    """Instances of any of the classes, optionally also matching `extra` statement filters."""
+    found: list[str] = []
+    complete = True
+    for i in range(0, len(classes), 50):
+        chunk = classes[i:i + 50]
+        ids, done = _search(f"haswbstatement:{'|'.join(f'P31={c}' for c in chunk)} {extra}".strip())
+        if not ids and len(chunk) > 1:  # if the search engine rejects OR filters, ask one class at a time
+            ids, done = [], True
+            for c in chunk[:12]:
+                more, ok = _search(f"haswbstatement:P31={c} {extra}".strip())
+                ids += more
+                done = done and ok
+            done = done and len(chunk) <= 12
+        complete = complete and done
+        found += [x for x in ids if x not in found]
+    return found, complete
+
+
+def _class_members(class_id: str, context_id: str | None = None) -> tuple[list[str], bool]:
+    """Items of the class (or its subclasses), within the context when one is given; and whether the list is complete."""
+    classes, complete = _subclasses(class_id)
+    if context_id is None:
+        members, done = _instances(classes)
+        complete = complete and done
+    else:
+        members = []
+        # Direct links ("part of the Solar System", "orbits the Sun") and one hop through the
+        # context's main parts (planets orbit the Sun, which is part of the Solar System).
+        anchors = [context_id] + _search(f"haswbstatement:P361={context_id}", 5)[0]
+        for anchor in anchors:
+            for prop in (_CONTEXT_PROPS if anchor == context_id else ("P361", "P397")):
+                ids, done = _instances(classes, f"haswbstatement:{prop}={anchor}")
+                if anchor == context_id:
+                    complete = complete and done
+                members += [x for x in ids if x not in members]
     if len(members) > MAX_MEMBERS:
         members, complete = members[:MAX_MEMBERS], False
     return members, complete
+
+
+def _part_links(entity: dict, depth: int = 3) -> set[str]:
+    """Everything the entity is part of (Pacific Ocean -> World Ocean): wholes don't compete with their parts."""
+    seen: set[str] = set()
+    frontier = s._values(entity, "P361")
+    for _ in range(depth):
+        frontier = [i for i in frontier if i not in seen]
+        if not frontier:
+            break
+        seen.update(frontier)
+        frontier = [v for e in s._get(frontier).values() for v in s._values(e, "P361")]
+    return seen
 
 
 def _fetch(ids: list[str]) -> dict[str, dict]:
@@ -278,6 +334,10 @@ def _check_instance(m: Measure) -> dict:
         owner = s._resolve(m.context)
         links = {v for p in ("P397", "P361", "P17", "P131", "P749", "P127") for v in s._values(entity, p)}
         owner_ok = bool(owner) and owner["id"] in links
+    rivals = {k for g in _EXCLUSIVE_KINDS if noun in g for k in (names & g) - {noun}}
+    if (noun in names or noun.rstrip("s") in names) and rivals:
+        return s._result("NOT ENOUGH INFO", rel, f"Wikidata classes {s._label(entity)} both as {m.noun} and as "
+                         f"{sorted(rivals)[0]}.", entity, direct)
     if noun in names or noun.rstrip("s") in names:
         if not owner_ok:
             return s._result("NOT ENOUGH INFO", rel, f"Wikidata classes {s._label(entity)} as {m.noun}, but does not "
@@ -305,8 +365,10 @@ def _check_superlative(m: Measure) -> dict:
         if not ctx:
             return s._result("NOT ENOUGH INFO", _rel(m, props[0]), f"Could not identify “{m.context}” in Wikidata.", subject)
         context_id = ctx["id"]
-    ids, complete = _class_members(cls["id"])
-    members = _fetch([i for i in ids if i != subject["id"]])
+    ids, complete = _class_members(cls["id"], context_id)
+    wholes = _part_links(subject)
+    members = {i: e for i, e in _fetch([i for i in ids if i != subject["id"] and i not in wholes]).items()
+               if subject["id"] not in s._values(e, "P361")}
     implicit = False
     if context_id:
         members = _in_context(members, context_id)
@@ -337,9 +399,9 @@ def _check_superlative(m: Measure) -> dict:
                          f"Wikidata records a {_MORE[m.stem]} {s._PROP_NAMES.get(prop, 'value')} for "
                          f"{s._label(members[best])} ({_fmt(known[best], prop)}) than for {s._label(subject)} "
                          f"({_fmt(mine, prop)}).", subject, shown)
-    is_member = cls["id"] in s._values(subject, "P31") or any(
-        cls["id"] in s._values(e, "P279") for e in s._get(s._values(subject, "P31")).values())
-    if is_member and complete and not implicit and known and len(known) == len(scored):
+    is_member = subject["id"] in ids  # the class search found the subject itself
+    # Items with no recorded measurement are left out of the comparison; at least one rival must be measured.
+    if is_member and complete and not implicit and known:
         return s._result(_verdict(True, m), rel,
                          f"Of the {len(known) + 1} items Wikidata lists as {s._label(cls)} here, {s._label(subject)} "
                          f"has the {_MOST[m.stem]} {s._PROP_NAMES.get(prop, 'value')} ({_fmt(mine, prop)}).", subject, shown)
@@ -354,7 +416,7 @@ def _check_rank(m, rel, subject, cls, members, known, scored, beat, rank, comple
         return s._result(_verdict(False, m), rel,
                          f"Wikidata ranks at least {len(beat)} other {s._label(cls)} items ahead of {s._label(subject)} "
                          f"by {s._PROP_NAMES.get(prop, 'value')}, so it is not number {rank}.", subject, shown)
-    if complete and len(known) == len(scored) and len(beat) == rank - 1:
+    if complete and known and len(beat) == rank - 1:
         ahead = ", ".join(s._label(members[i]) for i in ordered)
         return s._result(_verdict(True, m), rel,
                          f"By {s._PROP_NAMES.get(prop, 'value')}, Wikidata ranks only {ahead} ahead of {s._label(subject)}.",
@@ -401,12 +463,24 @@ def _check_orbit(m: Measure) -> dict:
     return s._result("NOT ENOUGH INFO", rel, "Wikidata does not link the two bodies by an orbit.", a, names)
 
 
+_CREDIT_PROPS = ("P61", "P170", "P50", "P178")  # discoverer or inventor, creator, author, developer
+
+
+def _credited(entity: dict) -> list[str]:
+    return list(dict.fromkeys(v for p in _CREDIT_PROPS for v in s._values(entity, p)))
+
+
 def _check_discovery(m: Measure) -> dict:
     rel = _rel(m, "P61")
-    thing = s._resolve(m.other, lambda e: bool(e.get("claims", {}).get("P61")))
+    thing = s._resolve(m.other, lambda e: bool(_credited(e) or s._values(e, "P527")))
     if not thing:
         return s._result("NOT ENOUGH INFO", rel, f"Wikidata names no discoverer or inventor for “{m.other}”.")
-    ents = s._get(s._values(thing, "P61"))
+    people = _credited(thing)
+    if not people:  # "theory of relativity" -> its parts, special and general relativity
+        people = list(dict.fromkeys(p for part in s._get(s._values(thing, "P527")[:8]).values() for p in _credited(part)))
+    if not people:
+        return s._result("NOT ENOUGH INFO", rel, f"Wikidata names no discoverer or inventor for {s._label(thing)}.", thing)
+    ents = s._get(people)
     names = [s._label(e) for e in ents.values()]
     target = s._norm(m.subject)
     matched = any(target in s._names(e) or target == s._norm(s._label(e)).split()[-1] for e in ents.values())

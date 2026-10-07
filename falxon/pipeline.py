@@ -10,12 +10,12 @@ from bs4 import BeautifulSoup
 
 from . import models, structured
 from .aggregate import NEI, decide
-from .claims import extract_claims, validate_claim
+from .claims import content_terms, extract_claims, validate_claim
 from .config import settings
 from .http import fetch_public_page
 from .retrieval import wikipedia
 
-ENGINE_VERSION = "falxon-5.1"
+ENGINE_VERSION = "falxon-5.2"
 PREFILTER_KEEP = 160
 
 
@@ -41,6 +41,8 @@ def verify(claim: str, use_structured: bool = True) -> dict:
         timings["structured"] = round(time.perf_counter() - t, 3)
         if result:
             report["structured"] = result
+            if "could not be reached" in result["note"]:
+                report["warnings"].append(result["note"].replace("structured source", "Wikidata record check"))
             if result["label"] != NEI:
                 return _finish(report, {
                     "label": result["label"], "confidence": result["confidence"],
@@ -108,6 +110,8 @@ def verify(claim: str, use_structured: bool = True) -> dict:
             item["relevance"] = round((item["relevance"] - 0.5) * 8, 4)
         report["warnings"].append("The reranking model was unavailable; used word overlap instead.")
 
+    for item in evidence:
+        item["covers"] = detail_coverage(claim, item.get("text", ""))
     verdict = decide(evidence, settings.thresholds)
     verdict["method"] = "retrieval+nli"
     for item in evidence:
@@ -115,6 +119,26 @@ def verify(claim: str, use_structured: bool = True) -> dict:
         item["stance"] = max(("entailment", "contradiction", "neutral"), key=lambda k: item["nli"][k])
     report["evidence"] = evidence
     return _finish(report, verdict, started, timings)
+
+
+DETAILED_CLAIM_TERMS = 5
+
+
+def detail_coverage(claim: str, passage: str) -> float:
+    """Share of the claim's specific terms (beyond its subject) that the passage mentions.
+
+    Long, detail-heavy claims ("... because one politician won a coin toss") are often unverifiable.
+    A passage that merely tells a different story about the subject shouldn't count as refuting them,
+    so the decision rule asks such passages to address most of the claim's details. Short claims get 1.0.
+    """
+    subject = set(content_terms(wikipedia.subject_phrase(claim) or ""))
+    terms = [w for w in content_terms(claim) if w not in subject]
+    if len(terms) < DETAILED_CLAIM_TERMS:
+        return 1.0
+    words = set(content_terms(passage))
+    stems = {w[:5] for w in words if len(w) >= 5}
+    hit = sum(w in words or (len(w) >= 5 and w[:5] in stems) for w in terms)
+    return round(hit / len(terms), 3)
 
 
 def _finish(report: dict, verdict: dict, started: float, timings: dict) -> dict:

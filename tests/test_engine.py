@@ -72,6 +72,9 @@ def test_structured_verdicts(claim, label):
     ("The Eiffel Tower is located in London.", REFUTED),
     ("The Eiffel Tower is located in Japan.", REFUTED),
     ("The Eiffel Tower is not located in Japan.", SUPPORTED),
+    ("Mount Everest is located in Australia.", REFUTED),     # not the namesake hill in an Australian shire
+    ("Mount Everest is located in Nepal.", SUPPORTED),
+    ("Mount Everest is located in Asia.", SUPPORTED),
     ("The Eiffel Tower is located in Champ de Mars.", NEI),   # not a city/country: no closed-world refutation
     ("The Eiffel Tower is located only in Europe.", NEI),     # exclusivity needs text evidence
 ])
@@ -97,6 +100,7 @@ def test_location_parse_ignores_non_places():
     ("Mercury is the closest planet to the Sun.", SUPPORTED),
     ("The Pacific Ocean is the smallest ocean on Earth.", REFUTED),
     ("The Arctic Ocean is the smallest ocean on Earth.", SUPPORTED),
+    ("The Pacific Ocean is the largest ocean on Earth.", SUPPORTED),     # the World Ocean is a whole, not a rival
     ("Venus is the second planet from the Sun.", SUPPORTED),
     ("Mars is the second planet from the Sun.", REFUTED),
     ("Neptune is the second largest planet in the Solar System.", SUPPORTED),
@@ -176,3 +180,14 @@ def test_report_cache_ignores_older_engines():
     assert store.recent_claim("Pluto is a planet.") == saved
     assert store.recent_claim("Pluto is a planet.", engine="falxon-0.1") == saved
     assert store.recent_claim("Pluto is a planet.", engine="falxon-9.9") is None
+
+
+def test_detail_heavy_claims_need_on_topic_refutations():
+    claim = "Canberra was selected as Australia's capital because one politician won a coin toss."
+    off_topic = "Canberra: The site was selected as a compromise between Sydney and Melbourne."
+    assert pipeline.detail_coverage(claim, off_topic) < 0.5
+    assert pipeline.detail_coverage("Sydney is the capital of Australia.", off_topic) == 1.0
+    t = dict(DEFAULT_THRESHOLDS)
+    contra = {"id": 0, "relevance": 5, "nli": {"entailment": .01, "neutral": .04, "contradiction": .95}}
+    assert decide([{**contra, "covers": 0.3}], t)["label"] == NEI
+    assert decide([{**contra, "covers": 0.8}], t)["label"] == REFUTED

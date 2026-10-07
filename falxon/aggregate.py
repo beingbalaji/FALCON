@@ -8,6 +8,7 @@ REFUTED = "REFUTED"
 NEI = "NOT ENOUGH INFO"
 CONFLICTING = "CONFLICTING EVIDENCE"
 LABELS = (SUPPORTED, REFUTED, NEI)
+DEFAULT_COVER = 0.5
 
 
 def _strong(scores: dict, key: str, floor: float, margin: float) -> bool:
@@ -36,7 +37,9 @@ def decide(evidence: list[dict], thresholds: dict) -> dict:
     dist = {k: round(v, 4) for k, v in dist.items()}
 
     support = [e for e in usable if _strong(e["nli"], "entailment", thresholds["entail"], thresholds["margin"])]
-    refute = [e for e in usable if _strong(e["nli"], "contradiction", thresholds["contradict"], thresholds["margin"])]
+    # A refutation of a detail-heavy claim must come from a passage that addresses those details.
+    refute = [e for e in usable if _strong(e["nli"], "contradiction", thresholds["contradict"], thresholds["margin"])
+              and e.get("covers", 1.0) >= thresholds.get("cover", DEFAULT_COVER)]
     best_s = max((e["nli"]["entailment"] for e in support), default=0.0)
     best_r = max((e["nli"]["contradiction"] for e in refute), default=0.0)
 
