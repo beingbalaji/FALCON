@@ -75,6 +75,14 @@ _ORBIT_RE = re.compile(
 _DISCOVER_RE = re.compile(
     r"^(.+?) (did not |didn't )?(developed|discovered|invented|formulated|proposed|develop|discover|invent|formulate|propose) (?:the )?(.+?)\.?$", re.I)
 
+_NAME_RE = re.compile(
+    r"^(?:the )?(.+?) (?:is|are) (not )?(?:commonly |often |also |popularly )?(?:called|known as|nicknamed) (?:the )?(.+?)\.?$", re.I)
+# "The Moon is a planet", "The Moon is Earth's natural satellite"
+_INSTANCE_RE = re.compile(r"^(?:the )?(.+?) (?:is|are) (not )?(?:(?:a|an) |(?:the )?(?:(\w+(?: \w+)?)'s (?:only )?))(.+?)\.?$", re.I)
+
+# Kinds of celestial body that exclude one another: being one rules out the others.
+_EXCLUSIVE_KINDS = [{"planet", "natural satellite", "star", "asteroid", "comet", "galaxy", "dwarf planet"}]
+
 
 @dataclass
 class Measure:
@@ -117,6 +125,13 @@ def parse(claim: str) -> Measure | None:
     m = _DISCOVER_RE.match(c)
     if m and len(m.group(4).split()) <= 6:
         return Measure("discovery", m.group(1).strip(), bool(m.group(2)), other=m.group(4).strip())
+    m = _NAME_RE.match(c)
+    if m:
+        return Measure("nickname", m.group(1).strip(), bool(m.group(2)), other=m.group(3).strip(" \"'“”"))
+    m = _INSTANCE_RE.match(c)
+    if m and len(m.group(4).split()) <= 3 and not re.search(r"\d", m.group(4)):
+        return Measure("instance", m.group(1).strip(), bool(m.group(2)), noun=m.group(4).strip(),
+                       context=(m.group(3) or "").strip())
     return None
 
 
@@ -215,7 +230,67 @@ def check(m: Measure) -> dict:
         return _check_comparative(m)
     if m.kind == "orbit":
         return _check_orbit(m)
+    if m.kind == "nickname":
+        return _check_nickname(m)
+    if m.kind == "instance":
+        return _check_instance(m)
     return _check_discovery(m)
+
+
+def _check_nickname(m: Measure) -> dict:
+    """Names can only be confirmed: a missing alias proves nothing."""
+    rel = s.Relation("nickname", "P31", m.other, m.subject, m.negated)
+    entity = s._resolve(m.subject)
+    if not entity:
+        return s._result("NOT ENOUGH INFO", rel, f"Could not identify “{m.subject}” in Wikidata.")
+    aliases = [a["value"] for a in entity.get("aliases", {}).get("en", [])]
+    if s._norm(m.other) in {s._norm(a) for a in aliases}:
+        return s._result(_verdict(True, m), rel, f"Wikidata lists “{m.other}” as another name for {s._label(entity)}.",
+                         entity, aliases[:6])
+    return s._result("NOT ENOUGH INFO", rel, "Wikidata does not list that name; other sources may.", entity, aliases[:6])
+
+
+def _class_closure(entity: dict, depth: int = 4, limit: int = 60) -> dict[str, dict]:
+    """Every class the entity is an instance of, directly or through subclass links."""
+    seen: dict[str, dict] = {}
+    frontier = s._values(entity, "P31") + s._values(entity, "P106")  # occupations count for people
+    for _ in range(depth):
+        frontier = [i for i in dict.fromkeys(frontier) if i not in seen][: max(0, limit - len(seen))]
+        if not frontier:
+            break
+        fetched = s._get(frontier)
+        seen.update(fetched)
+        frontier = [v for e in fetched.values() for v in s._values(e, "P279")]
+    return seen
+
+
+def _check_instance(m: Measure) -> dict:
+    rel = s.Relation("instance", "P31", m.noun, m.subject, m.negated)
+    entity = s._resolve(m.subject, lambda e: bool(s._values(e, "P31")))
+    if not entity:
+        return s._result("NOT ENOUGH INFO", rel, f"Could not identify “{m.subject}” in Wikidata.")
+    classes = _class_closure(entity)
+    names = {n for e in classes.values() for n in s._names(e)}
+    direct = [s._label(e) for i, e in classes.items() if i in s._values(entity, "P31")][:5]
+    noun = s._norm(m.noun)
+    owner_ok = True
+    if m.context:  # "Earth's natural satellite": also check the possessor
+        owner = s._resolve(m.context)
+        links = {v for p in ("P397", "P361", "P17", "P131", "P749", "P127") for v in s._values(entity, p)}
+        owner_ok = bool(owner) and owner["id"] in links
+    if noun in names or noun.rstrip("s") in names:
+        if not owner_ok:
+            return s._result("NOT ENOUGH INFO", rel, f"Wikidata classes {s._label(entity)} as {m.noun}, but does not "
+                             f"link it to {m.context}.", entity, direct)
+        return s._result(_verdict(True, m), rel, f"Wikidata classes {s._label(entity)} as {', '.join(direct)}.", entity, direct)
+    for group in _EXCLUSIVE_KINDS:
+        if noun in group:
+            other = (names & group) - {noun}
+            if other:
+                return s._result(_verdict(False, m), rel,
+                                 f"Wikidata classes {s._label(entity)} as a {sorted(other)[0]}, not a {m.noun}.",
+                                 entity, direct)
+    return s._result("NOT ENOUGH INFO", rel, "Wikidata's classification neither confirms nor rules this out.", entity, direct)
 
 
 def _check_superlative(m: Measure) -> dict:

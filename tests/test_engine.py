@@ -108,6 +108,14 @@ def test_location_parse_ignores_non_places():
     ("The Moon orbits the Earth.", SUPPORTED),
     ("William Shakespeare developed the theory of relativity.", REFUTED),
     ("Albert Einstein developed the theory of relativity.", SUPPORTED),
+    ("The Moon is a planet.", REFUTED),
+    ("The Moon is not a planet.", SUPPORTED),
+    ("Mars is a planet.", SUPPORTED),
+    ("The Moon is Earth's natural satellite.", SUPPORTED),
+    ("The Moon is Jupiter's natural satellite.", NEI),
+    ("The Moon is a cheese.", NEI),                      # absence of a class proves nothing
+    ("Mars is commonly called the Red Planet.", SUPPORTED),
+    ("Mars is commonly called the Blue Planet.", NEI),
 ])
 def test_structured_measures(claim, label):
     result = structured.check(claim)
