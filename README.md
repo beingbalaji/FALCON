@@ -50,7 +50,7 @@ Run the benchmark yourself (see below). It writes `reports/benchmark.md` and `re
 |---|---|---|
 | FALCON v2: TF-IDF + logistic regression | LIAR, 6-class | 26.3% |
 | FALCON v2: same model, true vs. false | LIAR, binary (majority class 56.7%) | 62.0% |
-| **FALXON v5** | FALCON-60 hand-written claims, 3-class | **78.3%** (macro F1 78.7%; 88.6% precision when decisive; run on 2026-10-06, before location checks were added) |
+| **FALXON v5.1** | FALCON-60 hand-written claims, 3-class | **80.0%** (macro F1 80.1%; 82.1% precision when decisive; run on 2026-10-07. The 2026-10-06 run without the record checks scored 78.3%) |
 | **FALXON v5** | FEVER 1.0 dev, 3-class, held-out split | *see `reports/benchmark.md`* |
 
 For context, published FEVER label-accuracy results with Wikipedia retrieval range from about 68% for the 2018 shared-task winner to about 80% for later BERT-era systems. FALXON uses off-the-shelf models with no FEVER-specific retrieval training, and it runs on a laptop CPU.

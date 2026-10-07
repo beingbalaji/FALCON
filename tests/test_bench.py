@@ -60,3 +60,19 @@ def test_quick_falcon60_updates_report(tmp_path, monkeypatch):
     bench.main(["falcon60"])
     report = json.loads((reports / "benchmark.json").read_text())
     assert [d["accuracy"] for d in report["datasets"]] == [1.0]
+
+
+def test_why_explains_misses(tmp_path, monkeypatch):
+    runs, reports = tmp_path / "runs", tmp_path / "reports"
+    runs.mkdir()
+    rec = {"id": "f1", "claim": "The Moon is a planet.", "label": "REFUTED",
+           "structured": {"relation": "instance", "label": "NOT ENOUGH INFO", "note": "Could not identify it."},
+           "evidence": [{"title": "Moon", "text": "The Moon is Earth's only natural satellite.", "decisive": False,
+                         "relevance": 4.2, "nli": {"entailment": 0.1, "neutral": 0.7, "contradiction": 0.2}}],
+           "verdict": {"label": "NOT ENOUGH INFO", "reason": "Weak."}, "warnings": []}
+    (runs / "falcon60.jsonl").write_text(json.dumps(rec) + "\n")
+    monkeypatch.setattr(bench, "RUNS", runs)
+    monkeypatch.setattr(bench, "REPORTS", reports)
+    text = bench.main(["why"])
+    assert "✗ The Moon is a planet." in text and "record check [instance]" in text and "Moon: The Moon" in text
+    assert (reports / "falcon60_misses.txt").exists()

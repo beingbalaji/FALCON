@@ -255,16 +255,57 @@ def quick_falcon60() -> dict:
     return m
 
 
+def explain_falcon60() -> str:
+    """Explain the misses of the last FALCON-60 run without re-running it. Writes reports/falcon60_misses.txt."""
+    path = RUNS / "falcon60.jsonl"
+    if not path.exists():
+        raise SystemExit("No FALCON-60 run yet: run `python -m evaluation.bench falcon60` first.")
+    records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    thresholds = load_thresholds()
+    structured = [r for r in records if r.get("structured")]
+    decisive = [r for r in structured if r["structured"].get("label") != NEI]
+    failed = [r for r in structured if "could not be reached" in (r["structured"].get("note") or "")]
+    lines = [f"engine {pipeline.ENGINE_VERSION}; {len(records)} claims; record checks used on {len(structured)}, "
+             f"decisive on {len(decisive)}, failed to reach Wikidata on {len(failed)}", ""]
+    for r in records:
+        got = predict(r, thresholds)
+        if got == r["label"]:
+            continue
+        lines.append(f"✗ {r['claim']}  (truth {r['label']}, got {got})")
+        s = r.get("structured")
+        if s:
+            lines.append(f"    record check [{s.get('relation')}] {s.get('label')}: {s.get('note')}")
+            if s.get("source"):
+                lines.append(f"      {s['source'].get('text', '')[:200]}")
+        lines.append(f"    text step: {r['verdict'].get('label')} — {r['verdict'].get('reason', '')}")
+        for w in r.get("warnings") or []:
+            lines.append(f"    warning: {w}")
+        ev = sorted(r.get("evidence") or [], key=lambda e: (not e.get("decisive"), -e.get("relevance", 0)))
+        for e in ev[:2]:
+            n = e.get("nli") or {}
+            lines.append(f"    [{'decisive' if e.get('decisive') else 'top'} e{n.get('entailment', 0):.2f} "
+                         f"c{n.get('contradiction', 0):.2f} rel{e.get('relevance', 0):.1f}] {e.get('title', '')}: {e.get('text', '')[:220]}")
+        lines.append("")
+    text = "\n".join(lines)
+    REPORTS.mkdir(parents=True, exist_ok=True)
+    (REPORTS / "falcon60_misses.txt").write_text(text, encoding="utf-8")
+    print(text)
+    print(f"Saved to {REPORTS / 'falcon60_misses.txt'}")
+    return text
+
+
 # ---------------------------------------------------------------- CLI
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("command", choices=["run", "calibrate", "report", "all", "falcon60"])
+    ap.add_argument("command", choices=["run", "calibrate", "report", "all", "falcon60", "why"])
     ap.add_argument("--n", type=int, default=600, help="FEVER claims to sample (balanced; 1/3 used for calibration)")
     ap.add_argument("--skip-falcon60", action="store_true")
     args = ap.parse_args(argv)
 
     if args.command == "falcon60":
         return quick_falcon60()
+    if args.command == "why":
+        return explain_falcon60()
     calib_items, test_items = fever_sample(args.n)
     if args.command in ("run", "all"):
         run(calib_items, f"fever_calib_{args.n}")
