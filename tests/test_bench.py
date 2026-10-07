@@ -76,3 +76,11 @@ def test_why_explains_misses(tmp_path, monkeypatch):
     text = bench.main(["why"])
     assert "✗ The Moon is a planet." in text and "record check [instance]" in text and "Moon: The Moon" in text
     assert (reports / "falcon60_misses.txt").exists()
+
+
+def test_doctor_runs_offline(monkeypatch):
+    from conftest import fake_get_json
+    from falxon import http
+
+    monkeypatch.setattr(http, "get_json", fake_get_json)
+    assert bench.main(["doctor"]) == 0

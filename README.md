@@ -69,6 +69,12 @@ uvicorn web.app:app --port 8000
 
 Open <http://127.0.0.1:8000>.
 
+Check that Wikidata and Wikipedia are reachable and that the record checks give known answers:
+
+```bash
+python -m evaluation.bench doctor
+```
+
 Run the tests (offline, so no models or network are needed):
 
 ```bash

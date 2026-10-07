@@ -294,10 +294,53 @@ def explain_falcon60() -> str:
     return text
 
 
+DOCTOR_CLAIMS = [
+    ("Sydney is the capital of Australia.", REFUTED),
+    ("Mount Everest is located in Nepal.", SUPPORTED),
+    ("Mount Everest is located in Australia.", REFUTED),
+    ("Jupiter is the largest planet in the Solar System.", SUPPORTED),
+    ("Mars is the largest planet in the Solar System.", REFUTED),
+    ("Venus is the second planet from the Sun.", SUPPORTED),
+    ("The Sun revolves around the Earth.", REFUTED),
+    ("The Moon is a planet.", REFUTED),
+]
+
+
+def doctor() -> int:
+    """Check the connections FALXON needs and run a few record checks with known answers."""
+    from falxon import structured
+    from falxon.http import get_json
+
+    problems = 0
+    for name, url, params in [
+        ("Wikidata", structured.API, {"action": "wbsearchentities", "search": "Canberra", "language": "en", "format": "json"}),
+        ("Wikipedia", "https://en.wikipedia.org/w/api.php", {"action": "query", "list": "search", "srsearch": "Canberra",
+                                                            "format": "json"}),
+    ]:
+        try:
+            get_json(url, params, use_cache=False)
+            print(f"  ok    {name} reachable")
+        except Exception as exc:
+            problems += 1
+            print(f"  FAIL  {name}: {type(exc).__name__}: {str(exc)[:160]}")
+    for claim, want in DOCTOR_CLAIMS:
+        try:
+            r = structured.check(claim) or {"label": NEI, "note": "not a record-check claim"}
+        except Exception as exc:
+            r = {"label": "ERROR", "note": f"{type(exc).__name__}: {exc}"}
+        ok = r["label"] == want
+        problems += not ok
+        print(f"  {'ok  ' if ok else 'MISS'}  {claim}  → {r['label']} (want {want})")
+        if not ok:
+            print(f"        {r.get('note')}")
+    print("All checks passed." if not problems else f"{problems} problem(s). Send this output to the FALXON thread.")
+    return problems
+
+
 # ---------------------------------------------------------------- CLI
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("command", choices=["run", "calibrate", "report", "all", "falcon60", "why"])
+    ap.add_argument("command", choices=["run", "calibrate", "report", "all", "falcon60", "why", "doctor"])
     ap.add_argument("--n", type=int, default=600, help="FEVER claims to sample (balanced; 1/3 used for calibration)")
     ap.add_argument("--skip-falcon60", action="store_true")
     args = ap.parse_args(argv)
@@ -306,6 +349,8 @@ def main(argv=None):
         return quick_falcon60()
     if args.command == "why":
         return explain_falcon60()
+    if args.command == "doctor":
+        return doctor()
     calib_items, test_items = fever_sample(args.n)
     if args.command in ("run", "all"):
         run(calib_items, f"fever_calib_{args.n}")
