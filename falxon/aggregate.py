@@ -47,6 +47,9 @@ def decide(evidence: list[dict], thresholds: dict) -> dict:
         counted = [e for e in usable if e.get("count") == "conflict" and e not in refute
                    and e["relevance"] >= thresholds["relevance"] + 1.0 and e["nli"]["entailment"] < thresholds["entail"]]
         refute += [{**e, "nli": {**e["nli"], "contradiction": max(e["nli"]["contradiction"], COUNT_CONFIDENCE)}} for e in counted]
+        if any(e.get("count") == "conflict" for e in refute):
+            # A passage that never states the claim's number can't confirm it ("The left heart has two chambers").
+            support = [e for e in support if e.get("count") != "absent"]
     best_s = max((e["nli"]["entailment"] for e in support), default=0.0)
     best_r = max((e["nli"]["contradiction"] for e in refute), default=0.0)
 

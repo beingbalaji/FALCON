@@ -89,12 +89,24 @@ WIKIDATA = {
     "Q788": _ocean("Q788", "Arctic Ocean", 14060000),
     "Q1239": _ocean("Q1239", "World Ocean", 361000000),
     "Q7003": _entity("Q7003", "Tethys Ocean", {"P31": [_item_claim("P31", "Q9430")]}),
-    "Q513": {**_entity("Q513", "Mount Everest", {"P17": [_item_claim("P17", "Q837")], "P30": [_item_claim("P30", "Q48")]}),
+    "Q513": {**_entity("Q513", "Mount Everest", {"P17": [_item_claim("P17", "Q837")], "P30": [_item_claim("P30", "Q48")],
+                                                "P706": [_item_claim("P706", "Q5451")]}),
              "sitelinks": {f"wiki{i}": {} for i in range(250)}},
     "Q837": _entity("Q837", "Nepal", {"P31": [_item_claim("P31", "Q3624078")], "P30": [_item_claim("P30", "Q48")]}),
     "Q48": _entity("Q48", "Asia", {"P31": [_item_claim("P31", "Q5107")]}),
     "Q7005": {**_entity("Q7005", "Mount Everest", {"P131": [_item_claim("P131", "Q7006")]}), "sitelinks": {"cebwiki": {}}},
     "Q7006": _entity("Q7006", "Shire of Somewhere", {"P17": [_item_claim("P17", "Q408")]}),
+    # Historical and geological links that must not count as "is in"
+    "Q12501": _entity("Q12501", "Great Wall of China", {"P131": [_item_claim("P131", "Q41079")],
+                                                        "P17": [_item_claim("P17", "Q148")]}),
+    "Q41079": _entity("Q41079", "Inner Mongolia", {"P131": [_item_claim("P131", "Q148")], "P17": [
+        _item_claim("P17", "Q148"),
+        {**_item_claim("P17", "Q188712"), "qualifiers": {"P582": [{"datavalue": {"value": {"time": "+1945-09-02T00:00:00Z"}}}]}}]}),
+    "Q148": _entity("Q148", "People's Republic of China", {"P31": [_item_claim("P31", "Q3624078")],
+                                                           "P30": [_item_claim("P30", "Q48")]}, aliases=("China",)),
+    "Q188712": _entity("Q188712", "Empire of Japan", {"P31": [_item_claim("P31", "Q3024240")]}, aliases=("Japan",)),
+    "Q5451": _entity("Q5451", "Himalayas", {"P706": [_item_claim("P706", "Q7007")]}),
+    "Q7007": _entity("Q7007", "Indo-Australian Plate", aliases=("Australia",)),
     "Q43514": _entity("Q43514", "theory of relativity", {"P527": [_item_claim("P527", "Q11455")]}),
     "Q11455": _entity("Q11455", "general relativity", {"P61": [_item_claim("P61", "Q937")]}),
 }
@@ -104,7 +116,7 @@ SEARCH = {"australia": ["Q408"], "hamlet": ["Q41567"], "albert einstein": ["Q937
           "mercury": ["Q308"], "venus": ["Q313"], "earth": ["Q2"], "mars": ["Q111"], "jupiter": ["Q319"],
           "neptune": ["Q332"], "moon": ["Q7004", "Q405"], "ocean": ["Q9430"], "pacific ocean": ["Q98"],
           "atlantic ocean": ["Q97"], "arctic ocean": ["Q788"], "theory of relativity": ["Q43514"],
-          "william shakespeare": ["Q692"], "mount everest": ["Q7005", "Q513"], "nepal": ["Q837"], "asia": ["Q48"]}
+          "william shakespeare": ["Q692"], "mount everest": ["Q7005", "Q513"], "nepal": ["Q837"], "asia": ["Q48"], "great wall of china": ["Q12501"], "china": ["Q148"]}
 
 
 def _ids(entity, prop):

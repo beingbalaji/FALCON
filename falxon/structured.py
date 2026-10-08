@@ -122,6 +122,20 @@ def _resolve(name: str, accept=lambda e: True) -> dict | None:
     return max(matches, key=lambda e: (prominence(e), -order.get(e.get("id"), 99)))
 
 
+def current_values(entity: dict, prop: str) -> list[str]:
+    """Item values that hold today: no deprecated rank and no past end date.
+
+    Historical links ("part of the Empire of Japan" for a Chinese province in the 1930s) must not
+    make "The Great Wall of China is in Japan" look true.
+    """
+    out = []
+    for st in current_statements(entity.get("claims", {}).get(prop, []), datetime.now(timezone.utc)):
+        v = st.get("mainsnak", {}).get("datavalue", {}).get("value")
+        if isinstance(v, dict) and v.get("id"):
+            out.append(v["id"])
+    return out
+
+
 def current_statements(statements: list[dict], now: datetime) -> list[dict]:
     valid = []
     for st in statements or []:
@@ -246,7 +260,7 @@ def _check(rel: Relation, now: datetime) -> dict:
         target = _norm(rel.subject)
         matched = any(
             _norm(_label(e)) == target or any(_norm(a["value"]) == target for a in e.get("aliases", {}).get("en", []))
-            or target and target == _norm(_label(e)).split()[-1]  # surname only, e.g. "Shakespeare"
+            or target and target == (_norm(_label(e)).split() or [""])[-1]  # surname only, e.g. "Shakespeare"
             for e in ents.values()
         )
         label = "SUPPORTED" if matched != rel.negated else "REFUTED"
@@ -284,14 +298,19 @@ def _names(e: dict) -> set[str]:
 
 
 def _place_closure(entity: dict, depth: int = 6, limit: int = 80) -> dict[str, dict]:
-    """Every place `entity` lies in, following admin-territory, country and continent links."""
+    """Every place `entity` lies in, following current admin-territory, country and continent links.
+
+    "Location" and "physical feature" links are followed only from the entity itself (Statue of Liberty ->
+    Liberty Island); further up they wander into geology (mountain range -> tectonic plate) and stop
+    meaning "is in".
+    """
     seen = {entity["id"]: entity}
     frontier = [entity]
-    for _ in range(depth):
+    for level in range(depth):
         nxt = []
         for e in frontier:
-            for prop in _PLACE_PROPS:
-                nxt += [i for i in _values(e, prop) if i not in seen]
+            for prop in (_PLACE_PROPS if level == 0 else ("P131", "P17", "P30")):
+                nxt += [i for i in current_values(e, prop) if i not in seen]
         nxt = list(dict.fromkeys(nxt))[: max(0, limit - len(seen))]
         if not nxt:
             break
@@ -313,6 +332,9 @@ def _check_location(rel: Relation) -> dict:
     inside = all(any(part in _names(e) for e in containers) for part in parts)
     where = f"Wikidata places {_label(place)} in {', '.join(shown) or 'no recorded territory'}."
     if inside:
+        matched = [_label(e) for part in parts for e in containers if part in _names(e)][:3]
+        if matched and _norm(matched[0]) not in parts:
+            where += f" (“{rel.subject}” matched {', '.join(matched)}.)"
         if rel.exclusive:
             return _result("NOT ENOUGH INFO", rel, where + " Whether it lies only there needs text evidence.", place, shown)
         return _result("REFUTED" if rel.negated else "SUPPORTED", rel, where, place, shown)

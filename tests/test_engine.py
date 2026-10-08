@@ -74,6 +74,8 @@ def test_structured_verdicts(claim, label):
     ("The Eiffel Tower is not located in Japan.", SUPPORTED),
     ("Mount Everest is located in Australia.", REFUTED),     # not the namesake hill in an Australian shire
     ("Mount Everest is located in Nepal.", SUPPORTED),
+    ("The Great Wall of China is located in Japan.", REFUTED),   # an ended historical link doesn't count
+    ("The Great Wall of China is located in China.", SUPPORTED),
     ("Mount Everest is located in Asia.", SUPPORTED),
     ("The Eiffel Tower is located in Champ de Mars.", NEI),   # not a city/country: no closed-world refutation
     ("The Eiffel Tower is located only in Europe.", NEI),     # exclusivity needs text evidence
@@ -204,3 +206,15 @@ def test_counted_nouns_refute_wrong_numbers():
     neutral = {"id": 0, "relevance": 5, "nli": {"entailment": .1, "neutral": .8, "contradiction": .1}}
     assert decide([{**neutral, "count": "conflict"}], t)["label"] == REFUTED
     assert decide([{**neutral, "count": "conflict"}, {**neutral, "id": 1, "count": "match"}], t)["label"] == NEI
+
+
+def test_count_conflict_beats_narrower_support():
+    claim = "The human heart has two chambers."
+    whole = "Heart: The heart has four chambers, two upper atria and two lower ventricles."
+    part = "Heart: The left heart has two chambers: the left atrium and the left ventricle."
+    assert pipeline.count_check(claim, whole) == "conflict"
+    assert pipeline.count_check(claim, part) == "absent"   # about the left heart, not the heart
+    t = dict(DEFAULT_THRESHOLDS)
+    refute = {"id": 0, "relevance": 8.0, "count": "conflict", "nli": {"entailment": .0, "neutral": .01, "contradiction": .99}}
+    support = {"id": 1, "relevance": 7.9, "count": "absent", "nli": {"entailment": .99, "neutral": .01, "contradiction": .0}}
+    assert decide([refute, support], t)["label"] == REFUTED

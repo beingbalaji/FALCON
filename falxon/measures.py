@@ -190,13 +190,20 @@ def _search(query: str, limit: int = 500) -> tuple[list[str], bool]:
 
 def _subclasses(class_id: str) -> tuple[list[str], bool]:
     """The class and its subclasses two levels down (planet -> giant planet -> ice giant)."""
-    first, complete = _search(f"haswbstatement:P279={class_id}", 50)
+    first, complete = _search(f"haswbstatement:P279={class_id}", 200)
     classes = [class_id] + first
-    for c in first[:15]:
-        more, done = _search(f"haswbstatement:P279={c}", 50)
+    for i in range(0, len(first), 40):
+        chunk = first[i:i + 40]
+        more, done = _search(f"haswbstatement:{'|'.join(f'P279={c}' for c in chunk)}")
+        if not more and len(chunk) > 1:  # search engine without OR filters: one class at a time
+            more, done = [], True
+            for c in chunk:
+                ids, ok = _search(f"haswbstatement:P279={c}", 200)
+                more += ids
+                done = done and ok
         complete = complete and done
         classes += [x for x in more if x not in classes]
-    return classes, complete and len(first) <= 15
+    return classes, complete
 
 
 def _instances(classes: list[str], extra: str = "") -> tuple[list[str], bool]:
@@ -208,21 +215,26 @@ def _instances(classes: list[str], extra: str = "") -> tuple[list[str], bool]:
         ids, done = _search(f"haswbstatement:{'|'.join(f'P31={c}' for c in chunk)} {extra}".strip())
         if not ids and len(chunk) > 1:  # if the search engine rejects OR filters, ask one class at a time
             ids, done = [], True
-            for c in chunk[:12]:
+            for c in chunk:
                 more, ok = _search(f"haswbstatement:P31={c} {extra}".strip())
                 ids += more
                 done = done and ok
-            done = done and len(chunk) <= 12
         complete = complete and done
         found += [x for x in ids if x not in found]
     return found, complete
 
 
-def _class_members(class_id: str, context_id: str | None = None) -> tuple[list[str], bool]:
-    """Items of the class (or its subclasses), within the context when one is given; and whether the list is complete."""
+def _class_members(class_id: str, context_id: str | None = None) -> tuple[list[str], bool, str]:
+    """Items of the class (or its subclasses), within the context when one is given.
+
+    Also returns whether the list is complete and, if not, why (shown on the report so a reader can judge).
+    """
     classes, complete = _subclasses(class_id)
+    why = "" if complete else f"the class has too many subclasses to list ({len(classes)} read)"
     if context_id is None:
         members, done = _instances(classes)
+        if complete and not done:
+            why = "the search returned more items than can be read"
         complete = complete and done
     else:
         members = []
@@ -232,12 +244,14 @@ def _class_members(class_id: str, context_id: str | None = None) -> tuple[list[s
         for anchor in anchors:
             for prop in (_CONTEXT_PROPS if anchor == context_id else ("P361", "P397")):
                 ids, done = _instances(classes, f"haswbstatement:{prop}={anchor}")
-                if anchor == context_id:
-                    complete = complete and done
+                if anchor == context_id and complete and not done:
+                    complete, why = False, f"too many items are linked to the context by {prop}"
                 members += [x for x in ids if x not in members]
     if len(members) > MAX_MEMBERS:
+        if complete:
+            why = f"more than {MAX_MEMBERS} candidates"
         members, complete = members[:MAX_MEMBERS], False
-    return members, complete
+    return members, complete, why
 
 
 def _part_links(entity: dict, depth: int = 3) -> set[str]:
@@ -365,7 +379,7 @@ def _check_superlative(m: Measure) -> dict:
         if not ctx:
             return s._result("NOT ENOUGH INFO", _rel(m, props[0]), f"Could not identify “{m.context}” in Wikidata.", subject)
         context_id = ctx["id"]
-    ids, complete = _class_members(cls["id"], context_id)
+    ids, complete, why = _class_members(cls["id"], context_id)
     wholes = _part_links(subject)
     members = {i: e for i, e in _fetch([i for i in ids if i != subject["id"] and i not in wholes]).items()
                if subject["id"] not in s._values(e, "P361")}
@@ -391,7 +405,8 @@ def _check_superlative(m: Measure) -> dict:
     beat = [i for i, v in known.items() if (v - mine) * sign > 0]
     rank = m.extra.get("rank", 1)
     if rank > 1:
-        return _check_rank(m, rel, subject, cls, members, known, scored, beat, rank, complete and not implicit, shown, prop)
+        return _check_rank(m, rel, subject, cls, members, known, scored, beat, rank, complete and not implicit, shown, prop,
+                           why or ("the comparison is restricted to its neighbours" if implicit else ""))
     if beat:
         best = max(beat, key=lambda i: known[i] * sign)
         shown.append(f"{s._label(members[best])}: {_fmt(known[best], prop)}")
@@ -405,10 +420,13 @@ def _check_superlative(m: Measure) -> dict:
         return s._result(_verdict(True, m), rel,
                          f"Of the {len(known) + 1} items Wikidata lists as {s._label(cls)} here, {s._label(subject)} "
                          f"has the {_MOST[m.stem]} {s._PROP_NAMES.get(prop, 'value')} ({_fmt(mine, prop)}).", subject, shown)
-    return s._result("NOT ENOUGH INFO", rel, "No counterexample was found, but the comparison set is incomplete.", subject, shown)
+    reason = why or ("the comparison is restricted to its neighbours" if implicit else
+                     "no other measured item was found" if not known else "the subject is not listed in that class")
+    return s._result("NOT ENOUGH INFO", rel, f"No counterexample was found, but the comparison can't be confirmed: {reason}.",
+                     subject, shown)
 
 
-def _check_rank(m, rel, subject, cls, members, known, scored, beat, rank, complete, shown, prop) -> dict:
+def _check_rank(m, rel, subject, cls, members, known, scored, beat, rank, complete, shown, prop, why="") -> dict:
     """The subject is n-th when exactly n-1 members beat it. More than n-1 already disproves it."""
     ordered = sorted(beat, key=lambda i: known[i], reverse=_MEASURES[m.stem][1] > 0)
     shown += [f"{s._label(members[i])}: {_fmt(known[i], prop)}" for i in ordered[:4]]
@@ -421,7 +439,8 @@ def _check_rank(m, rel, subject, cls, members, known, scored, beat, rank, comple
         return s._result(_verdict(True, m), rel,
                          f"By {s._PROP_NAMES.get(prop, 'value')}, Wikidata ranks only {ahead} ahead of {s._label(subject)}.",
                          subject, shown)
-    return s._result("NOT ENOUGH INFO", rel, "The comparison set is incomplete, so the rank can't be confirmed.", subject, shown)
+    reason = why or ("no other measured item was found" if not known else f"{len(beat)} item(s) rank ahead of it")
+    return s._result("NOT ENOUGH INFO", rel, f"The rank can't be confirmed: {reason}.", subject, shown)
 
 
 def _check_comparative(m: Measure) -> dict:
@@ -483,7 +502,7 @@ def _check_discovery(m: Measure) -> dict:
     ents = s._get(people)
     names = [s._label(e) for e in ents.values()]
     target = s._norm(m.subject)
-    matched = any(target in s._names(e) or target == s._norm(s._label(e)).split()[-1] for e in ents.values())
+    matched = any(target in s._names(e) or target == (s._norm(s._label(e)).split() or [""])[-1] for e in ents.values())
     if not matched and len(ents) != 1:
         return s._result("NOT ENOUGH INFO", rel, "Several people are credited; absence can't be proven.", thing, names)
     return s._result(_verdict(matched, m), rel,

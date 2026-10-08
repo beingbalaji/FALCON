@@ -15,7 +15,7 @@ from .config import settings
 from .http import fetch_public_page
 from .retrieval import wikipedia
 
-ENGINE_VERSION = "falxon-5.3"
+ENGINE_VERSION = "falxon-5.4"
 PREFILTER_KEEP = 160
 
 
@@ -129,10 +129,21 @@ _COUNT = re.compile(r"\b(\d{1,3}|" + "|".join(w for w in _NUMBER_WORDS if w != "
                     r")(?:[ -](?!(?:and|or|of|in|the|to|for|by)\b)[a-z]+)?[ -]([a-z]{3,})\b", re.I)
 
 
-def _counts(text: str) -> dict[str, set[int]]:
-    """Small counted nouns: "four chambers" -> {"chamber": {4}}. Years and big numbers are ignored."""
+_HAS = {"he", "she", "it", "they", "its", "his", "her", "their", "has", "have", "had", "contains", "contain", "with", "is", "are", "was", "were", "of", "into", "consists"}
+
+
+def _counts(text: str, scope: set[str] | None = None) -> dict[str, set[int]]:
+    """Small counted nouns: "four chambers" -> {"chamber": {4}}. Years and big numbers are ignored.
+
+    With `scope` (the claim's own words), a count whose subject adds a qualifier the claim lacks
+    ("The *left* heart has two chambers") is about something narrower and is skipped.
+    """
     out: dict[str, set[int]] = {}
     for m in _COUNT.finditer(text or ""):
+        if scope is not None:
+            before = re.findall(r"[a-z]+", text[max(0, m.start() - 40):m.start()].lower())[-4:]
+            if any(w not in scope and w not in _HAS and w not in _STOP and len(w) > 2 for w in before):
+                continue
         raw, noun = m.group(1).lower(), m.group(2).lower()
         n = int(raw) if raw.isdigit() else _NUMBER_WORDS[raw]
         noun = re.sub(r"(?:es|s)$", "", noun) if len(noun) > 4 else noun
@@ -147,8 +158,8 @@ def count_check(claim: str, passage: str) -> str | None:
     mine = _counts(claim)
     if not mine:
         return None
-    theirs = _counts(passage)
-    result = None
+    theirs = _counts(passage, scope=set(content_terms(claim)))
+    result = "absent"  # the claim counts something this passage doesn't count
     for noun, nums in mine.items():
         if noun not in theirs:
             continue
