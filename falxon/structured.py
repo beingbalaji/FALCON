@@ -174,6 +174,15 @@ def check(claim: str) -> dict | None:
         return _result("NOT ENOUGH INFO", rel, f"The structured source could not be reached ({type(exc).__name__}: {str(exc)[:160]}).")
 
 
+def _record_text(entity: dict, rel, values) -> str:
+    what = _KIND_NAMES.get(rel.kind) or _PROP_NAMES.get(rel.prop, rel.kind.replace("_", " "))
+    if values and all(": " in v for v in values):  # measurements: "Radius — Mars: 3,390 km · Jupiter: 69,911 km"
+        return f"{what[:1].upper()}{what[1:]} — {' · '.join(values)}"
+    return f"{_label(entity)} — {what}: {', '.join(values or []) or 'no usable value'}"
+
+
+_KIND_NAMES = {"instance": "classified as", "nickname": "also known as", "head_of_government": "head of government",
+               "head_of_state": "head of state", "inception": "founded", "birth": "born"}
 _PROP_NAMES = {"P2046": "area", "P2120": "radius", "P2067": "mass", "P2048": "height", "P2044": "elevation",
                "P2043": "length", "P4511": "depth", "P1082": "population", "P2233": "average distance from its star",
                "P397": "orbits", "P61": "discoverer or inventor", "P131": "location"}
@@ -188,8 +197,7 @@ def _result(label, rel, note, entity=None, values=None, confidence=None):
             "url": f"https://www.wikidata.org/wiki/{eid}#{rel.prop}",
             "revision_url": f"https://www.wikidata.org/w/index.php?title={eid}&oldid={entity.get('lastrevid')}",
             "publisher": "Wikidata",
-            "text": f"{_label(entity)} — {_PROP_NAMES.get(rel.prop, rel.kind.replace('_', ' '))}: "
-                    f"{', '.join(values or []) or 'no usable value'}",
+            "text": _record_text(entity, rel, values),
             "updated_at": entity.get("modified"),
         }
     return {

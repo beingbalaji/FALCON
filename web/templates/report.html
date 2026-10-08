@@ -13,7 +13,8 @@
     <h1 class="headline claim">“{{ r.claim }}”</h1>
     <div class="stamp tone-{{ s.tone }}" aria-label="Verdict: {{ s.word }}">
       <span class="stamp-word">{{ s.word }}</span>
-      {% if v.confidence %}<span class="stamp-conf">{{ v.confidence | pct }} model confidence</span>{% endif %}
+      {% if v.method == 'structured' and v.label != 'NOT ENOUGH INFO' %}<span class="stamp-conf">From Wikidata records</span>
+      {% elif v.confidence %}<span class="stamp-conf">{{ v.confidence | pct }} model confidence</span>{% endif %}
     </div>
     <p class="dek">{{ s.dek }}</p>
     <p class="byline">By the FALXON fact desk · <time>{{ r.checked_at | date }}</time> · {{ r.timings.total }} seconds · method: {{ 'Wikidata record' if v.method == 'structured' else 'Wikipedia evidence + NLI' }}</p>
@@ -32,7 +33,7 @@
       <h2 class="h2">What the record says</h2>
       <figure class="record">
         <blockquote>{{ r.structured.source.text }}</blockquote>
-        <figcaption>{{ r.structured.note }} <a href="{{ r.structured.source.revision_url }}" target="_blank" rel="noopener">Wikidata, revision used</a>{% if r.structured.source.updated_at %} · updated {{ r.structured.source.updated_at | date }}{% endif %}</figcaption>
+        <figcaption>{% if v.method != 'structured' %}{{ r.structured.note }} {% endif %}<a href="{{ r.structured.source.revision_url }}" target="_blank" rel="noopener">Wikidata, revision used</a>{% if r.structured.source.updated_at %} · updated {{ r.structured.source.updated_at | date }}{% endif %}</figcaption>
       </figure>
       {% endif %}
 
@@ -105,8 +106,12 @@
 
       <section class="box note">
         <p class="kicker">About this check</p>
+        {% if v.method == 'structured' %}
+        <p>Automated verdict from Wikidata's structured records, compared by entity and measurement, with no language model involved. Wikidata is community-edited and can be incomplete or out of date; follow the revision link to see the exact record used.</p>
+        {% else %}
         <p>Automated verdict. Wikipedia and Wikidata are community-edited and can be incomplete or out of date; the model can misread a passage. Read the evidence before relying on the result.</p>
         <p class="muted small">Models: {{ r.models.nli }}{% if r.models.reranker %}; {{ r.models.reranker }}{% endif %}.</p>
+        {% endif %}
       </section>
     </aside>
   </div>
