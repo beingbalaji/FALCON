@@ -10,12 +10,12 @@ from bs4 import BeautifulSoup
 
 from . import models, structured
 from .aggregate import NEI, decide
-from .claims import content_terms, extract_claims, validate_claim
+from .claims import _STOP, content_terms, extract_claims, validate_claim
 from .config import settings
 from .http import fetch_public_page
 from .retrieval import wikipedia
 
-ENGINE_VERSION = "falxon-5.2"
+ENGINE_VERSION = "falxon-5.3"
 PREFILTER_KEEP = 160
 
 
@@ -112,6 +112,7 @@ def verify(claim: str, use_structured: bool = True) -> dict:
 
     for item in evidence:
         item["covers"] = detail_coverage(claim, item.get("text", ""))
+        item["count"] = count_check(claim, item.get("text", ""))
     verdict = decide(evidence, settings.thresholds)
     verdict["method"] = "retrieval+nli"
     for item in evidence:
@@ -119,6 +120,42 @@ def verify(claim: str, use_structured: bool = True) -> dict:
         item["stance"] = max(("entailment", "contradiction", "neutral"), key=lambda k: item["nli"][k])
     report["evidence"] = evidence
     return _finish(report, verdict, started, timings)
+
+
+_NUMBER_WORDS = {w: i for i, w in enumerate(
+    "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen "
+    "seventeen eighteen nineteen twenty".split())}
+_COUNT = re.compile(r"\b(\d{1,3}|" + "|".join(w for w in _NUMBER_WORDS if w != "one") +
+                    r")(?:[ -](?!(?:and|or|of|in|the|to|for|by)\b)[a-z]+)?[ -]([a-z]{3,})\b", re.I)
+
+
+def _counts(text: str) -> dict[str, set[int]]:
+    """Small counted nouns: "four chambers" -> {"chamber": {4}}. Years and big numbers are ignored."""
+    out: dict[str, set[int]] = {}
+    for m in _COUNT.finditer(text or ""):
+        raw, noun = m.group(1).lower(), m.group(2).lower()
+        n = int(raw) if raw.isdigit() else _NUMBER_WORDS[raw]
+        noun = re.sub(r"(?:es|s)$", "", noun) if len(noun) > 4 else noun
+        if noun in _STOP or noun in _NUMBER_WORDS:
+            continue
+        out.setdefault(noun, set()).add(n)
+    return out
+
+
+def count_check(claim: str, passage: str) -> str | None:
+    """"conflict" when the passage counts the claim's noun differently ("two chambers" vs "four chambers")."""
+    mine = _counts(claim)
+    if not mine:
+        return None
+    theirs = _counts(passage)
+    result = None
+    for noun, nums in mine.items():
+        if noun not in theirs:
+            continue
+        if nums & theirs[noun]:
+            return "match"
+        result = "conflict"
+    return result
 
 
 DETAILED_CLAIM_TERMS = 5

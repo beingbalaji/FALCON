@@ -191,3 +191,16 @@ def test_detail_heavy_claims_need_on_topic_refutations():
     contra = {"id": 0, "relevance": 5, "nli": {"entailment": .01, "neutral": .04, "contradiction": .95}}
     assert decide([{**contra, "covers": 0.3}], t)["label"] == NEI
     assert decide([{**contra, "covers": 0.8}], t)["label"] == REFUTED
+
+
+def test_counted_nouns_refute_wrong_numbers():
+    heart = "Heart: The heart has four chambers: two upper atria and two lower ventricles."
+    assert pipeline.count_check("The human heart has two chambers.", heart) == "conflict"
+    assert pipeline.count_check("The human heart has four chambers.", heart) == "match"
+    assert pipeline.count_check("Beyonce has released six studio albums.", "She has released eight studio albums.") == "conflict"
+    assert pipeline.count_check("He is one of the best players.", "He was one of the two founders.") is None
+    assert pipeline.count_check("Spain won the World Cup in 2010.", heart) is None
+    t = dict(DEFAULT_THRESHOLDS)
+    neutral = {"id": 0, "relevance": 5, "nli": {"entailment": .1, "neutral": .8, "contradiction": .1}}
+    assert decide([{**neutral, "count": "conflict"}], t)["label"] == REFUTED
+    assert decide([{**neutral, "count": "conflict"}, {**neutral, "id": 1, "count": "match"}], t)["label"] == NEI

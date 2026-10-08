@@ -9,6 +9,7 @@ NEI = "NOT ENOUGH INFO"
 CONFLICTING = "CONFLICTING EVIDENCE"
 LABELS = (SUPPORTED, REFUTED, NEI)
 DEFAULT_COVER = 0.5
+COUNT_CONFIDENCE = 0.9
 
 
 def _strong(scores: dict, key: str, floor: float, margin: float) -> bool:
@@ -40,6 +41,12 @@ def decide(evidence: list[dict], thresholds: dict) -> dict:
     # A refutation of a detail-heavy claim must come from a passage that addresses those details.
     refute = [e for e in usable if _strong(e["nli"], "contradiction", thresholds["contradict"], thresholds["margin"])
               and e.get("covers", 1.0) >= thresholds.get("cover", DEFAULT_COVER)]
+    # A relevant passage that counts the claim's thing differently ("four chambers" vs "two") refutes it,
+    # unless another relevant passage repeats the claim's own number.
+    if not any(e.get("count") == "match" for e in usable):
+        counted = [e for e in usable if e.get("count") == "conflict" and e not in refute
+                   and e["relevance"] >= thresholds["relevance"] + 1.0 and e["nli"]["entailment"] < thresholds["entail"]]
+        refute += [{**e, "nli": {**e["nli"], "contradiction": max(e["nli"]["contradiction"], COUNT_CONFIDENCE)}} for e in counted]
     best_s = max((e["nli"]["entailment"] for e in support), default=0.0)
     best_r = max((e["nli"]["contradiction"] for e in refute), default=0.0)
 
@@ -59,7 +66,9 @@ def decide(evidence: list[dict], thresholds: dict) -> dict:
     if refute:
         return {"label": REFUTED, "confidence": round(best_r, 4), "distribution": dist,
                 "decisive": [e["id"] for e in refute],
-                "reason": "At least one highly relevant passage clearly contradicts the claim."}
+                "reason": ("A highly relevant passage gives a different number than the claim."
+                           if any(e.get("count") == "conflict" for e in refute)
+                           else "At least one highly relevant passage clearly contradicts the claim.")}
     return {"label": NEI, "confidence": round(1.0 - max(dist[SUPPORTED], dist[REFUTED]), 4), "distribution": dist,
             "decisive": [], "reason": "The sources found neither clearly support nor clearly contradict the claim."}
 
