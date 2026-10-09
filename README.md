@@ -4,7 +4,7 @@
 
 Everything is free and open: no paid APIs, no API keys, and every model runs locally on CPU.
 
-> Research project by **Balaji R**. Verdicts are automatic and can be wrong; every report lists the passages and source revisions it relied on.
+> Research project by **Balaji R**. Full write-up: [docs/technical-report.md](docs/technical-report.md). Verdicts are automatic and can be wrong; every report lists the passages and source revisions it relied on.
 
 ---
 
