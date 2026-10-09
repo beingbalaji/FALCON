@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Methodology &amp; accuracy — FALXON{% endblock %}
+{% block content %}
+<article class="page longform">
+  <p class="kicker">Methodology</p>
+  <h1 class="headline">How FALXON checks a claim, and how often it is right</h1>
+  <p class="dek">A transparent account of the pipeline, the models, the benchmark and the known failure modes.</p>
+
+  <h2 class="h2">Accuracy</h2>
+  {% if benchmark %}
+  {% for d in benchmark.datasets %}
+  <section class="bench">
+    <h3>{{ d.name }}</h3>
+    <p class="muted small">{{ d.description }}</p>
+    <div class="stat-row">
+      <div><span class="big-number">{{ d.accuracy | pct }}</span><span class="caption">accuracy ({{ d.n }} claims)</span></div>
+      <div><span class="big-number">{{ d.macro_f1 | pct }}</span><span class="caption">macro F1</span></div>
+      <div><span class="big-number">{{ d.precision_when_decisive | pct }}</span><span class="caption">precision when decisive</span></div>
+      <div><span class="big-number">{{ d.abstention_rate | pct }}</span><span class="caption">answered “not enough info”</span></div>
+    </div>
+    <table class="ledger compact">
+      <thead><tr><th>Label</th><th>Precision</th><th>Recall</th><th>F1</th><th>Claims</th></tr></thead>
+      <tbody>
+      {% for label, m in d.per_label.items() %}
+      <tr><td>{{ VERDICT_STYLE[label].word }}</td><td>{{ m.precision | pct }}</td><td>{{ m.recall | pct }}</td><td>{{ m.f1 | pct }}</td><td>{{ m.support }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p class="caption">Confusion matrix (rows = truth, columns = FALXON):</p>
+    <table class="ledger compact matrix">
+      <thead><tr><th></th>{% for l in d.confusion.labels %}<th>{{ VERDICT_STYLE[l].word }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for row in d.confusion.matrix %}<tr><th>{{ VERDICT_STYLE[d.confusion.labels[loop.index0]].word }}</th>{% for n in row %}<td>{{ n }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+    </table>
+  </section>
+  {% endfor %}
+  {% if benchmark.baselines %}
+  <h3>Compared with earlier versions</h3>
+  <table class="ledger compact">
+    <thead><tr><th>System</th><th>Task</th><th>Accuracy</th></tr></thead>
+    <tbody>{% for b in benchmark.baselines %}<tr><td>{{ b.name }}</td><td>{{ b.task }}</td><td>{{ b.accuracy | pct }}</td></tr>{% endfor %}</tbody>
+  </table>
+  {% endif %}
+  <p class="caption">Run {{ benchmark.run.date | date }} · engine {{ benchmark.run.engine }} · thresholds {{ benchmark.run.thresholds }}</p>
+  {% else %}
+  <p>No benchmark has been run on this deployment yet. Run <code>python -m evaluation.bench all --n 600</code> to produce one.</p>
+  {% endif %}
+
+  <h2 class="h2">The pipeline</h2>
+  <ol class="steps">
+    <li><strong>Claim intake.</strong> The input is normalised and validated. For articles, a check-worthiness scorer picks out statements that name entities, numbers or dates and avoids opinion and hedging.</li>
+    <li><strong>Structured records.</strong> Claims about capitals, heads of government and state, authorship, founding and birth years, where a place is located, orbits, discoverers, and size, distance or rank comparisons are parsed and compared with Wikidata entity IDs, statements and measurements. A single recorded counterexample is enough to call a superlative false; calling it true requires every member of the comparison set. If the record is ambiguous or incomplete, FALXON abstains instead of guessing.</li>
+    <li><strong>Retrieval.</strong> Search queries are built from the subject phrase, named entities and the claim with negations removed, then sent to the Wikipedia search API. Up to {{ settings.max_pages }} articles are fetched at a pinned revision, split into single sentences and two-sentence windows.</li>
+    <li><strong>Reranking.</strong> <code>{{ settings.rerank_model }}</code>, a cross-encoder trained for passage relevance, scores every candidate against the claim. The best {{ settings.rerank_keep }} are kept, with at most three from any one article.</li>
+    <li><strong>Natural language inference.</strong> <code>{{ settings.nli_model }}</code>, trained on MNLI, FEVER-NLI and ANLI, reads the top {{ settings.nli_keep }} passages as premises and the claim as the hypothesis.</li>
+    <li><strong>Decision.</strong> A passage counts only if one label is both strong and well ahead of the others. Opposing strong passages yield <em>Disputed</em>; nothing strong yields <em>Unverified</em>. Thresholds are tuned on a separate FEVER split, never on the test set.</li>
+  </ol>
+
+  <h2 class="h2">Known limitations</h2>
+  <ul class="bullets">
+    <li>Only English Wikipedia and Wikidata are searched. Very recent events, local news, and claims about private people are usually out of reach.</li>
+    <li>Wikipedia is one publisher, so agreement across pages is not independent corroboration.</li>
+    <li>NLI models can be misled by scope (a state capital vs. a national capital), numbers, negation and sarcasm.</li>
+    <li>FEVER claims were written from 2017 Wikipedia; a few labels may have changed since.</li>
+    <li>“Confidence” is the model’s probability for the decisive passage, not a calibrated probability that the claim is true.</li>
+  </ul>
+</article>
+{% endblock %}

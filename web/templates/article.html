@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Article check — FALXON{% endblock %}
+{% block content %}
+<article class="report">
+  <header class="report-head">
+    <p class="kicker">Article Check</p>
+    <h1 class="headline">{{ a.title or "Pasted article" }}</h1>
+    {% if a.url %}<p class="byline"><a href="{{ a.url }}" target="_blank" rel="noopener nofollow">{{ a.url }}</a></p>{% endif %}
+    <p class="dek">We found {{ a.claims | length }} checkable statement{{ '' if a.claims | length == 1 else 's' }}.
+      {% for label, n in a.counts.items() %}{{ n }} {{ VERDICT_STYLE[label].word | lower }}{{ ', ' if not loop.last else '.' }}{% endfor %}</p>
+    <p class="byline">By the FALXON fact desk · <time>{{ a.checked_at | date }}</time></p>
+  </header>
+
+  <ol class="claim-list">
+    {% for c in a.claims %}
+    {% set s = VERDICT_STYLE.get(c.verdict.label, VERDICT_STYLE['NOT ENOUGH INFO']) %}
+    <li>
+      <span class="tag tone-{{ s.tone }}">{{ s.word }}</span>
+      <h3><a href="/report/{{ c.id }}">“{{ c.claim }}”</a></h3>
+      <p>{{ c.verdict.reason }}</p>
+      {% set key = (c.evidence | selectattr('decisive') | list) %}
+      {% if key %}<blockquote>{{ key[0].text }} <cite>— {{ key[0].title }}, Wikipedia</cite></blockquote>
+      {% elif c.structured and c.structured.source %}<blockquote>{{ c.structured.source.text }} <cite>— Wikidata</cite></blockquote>{% endif %}
+      <a class="more" href="/report/{{ c.id }}">Full evidence →</a>
+    </li>
+    {% endfor %}
+  </ol>
+  <p><a class="btn" href="/#article">Check another article</a></p>
+</article>
+{% endblock %}

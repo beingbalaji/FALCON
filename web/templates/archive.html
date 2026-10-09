@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Archive — FALXON{% endblock %}
+{% block content %}
+<section class="page">
+  <p class="kicker">The Archive</p>
+  <h1 class="headline">Every claim we have checked</h1>
+  {% if stats %}
+  <p class="dek">{% for label, n in stats.items() %}{{ n }} {{ VERDICT_STYLE.get(label, VERDICT_STYLE['NOT ENOUGH INFO']).word | lower }}{{ ' · ' if not loop.last }}{% endfor %}</p>
+  {% endif %}
+  <table class="ledger">
+    <thead><tr><th>Verdict</th><th>Claim or article</th><th>Checked</th></tr></thead>
+    <tbody>
+    {% for row in rows %}
+      {% set s = VERDICT_STYLE.get(row.label, VERDICT_STYLE['NOT ENOUGH INFO']) %}
+      <tr>
+        <td>{% if row.kind == 'article' %}<span class="tag">Article</span>{% else %}<span class="tag tone-{{ s.tone }}">{{ s.word }}</span>{% endif %}</td>
+        <td><a href="/{{ 'article' if row.kind == 'article' else 'report' }}/{{ row.id }}">{{ row.title }}</a></td>
+        <td><time>{{ row.created_at | date }}</time></td>
+      </tr>
+    {% else %}
+      <tr><td colspan="3" class="muted">Nothing checked yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

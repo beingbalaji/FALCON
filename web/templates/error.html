@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}{{ status }} — FALXON{% endblock %}
+{% block content %}
+<section class="page center">
+  <p class="kicker">Correction</p>
+  <h1 class="headline">{{ 'We could not find that page.' if status == 404 else detail }}</h1>
+  <p class="dek">{{ detail if status == 404 else '' }}</p>
+  <p><a class="btn" href="/">Back to the front page</a></p>
+</section>
+{% endblock %}

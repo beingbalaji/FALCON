@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}FALXON — Evidence before opinion{% endblock %}</title>
+  <meta name="description" content="FALXON checks factual claims against Wikipedia and Wikidata using open AI models, and shows its evidence.">
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/fonts/fonts.css">
+  <link rel="stylesheet" href="/static/style.css?v=5">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <header class="masthead">
+    <div class="topbar wrap">
+      <span class="topbar-date" data-today></span>
+      <span class="topbar-mid">The fact desk · Open-source edition</span>
+      <span class="topbar-right"><a href="/api/docs">API</a></span>
+    </div>
+    <div class="wrap brand-row">
+      <a class="brand" href="/" aria-label="FALXON home">Falxon</a>
+      <p class="motto">“Evidence before opinion.”</p>
+    </div>
+    <nav class="sections wrap" aria-label="Sections">
+      <a href="/#check" class="{{ 'on' if active == 'home' }}">Check a Claim</a>
+      <a href="/#article" data-tab-link="article">Check an Article</a>
+      <a href="/archive" class="{{ 'on' if active == 'archive' }}">Archive</a>
+      <a href="/methodology" class="{{ 'on' if active == 'methodology' }}">Methodology</a>
+      <a href="/api/docs">Developers</a>
+    </nav>
+  </header>
+
+  <main class="wrap">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer-grid">
+      <div>
+        <span class="brand small">Falxon</span>
+        <p>An academic research project by Balaji R. Verdicts are produced automatically from public sources and open models, and can be wrong. Always read the evidence.</p>
+      </div>
+      <div>
+        <h4>Sections</h4>
+        <a href="/">Check a claim</a><a href="/archive">Archive</a><a href="/methodology">Methodology &amp; accuracy</a><a href="/api/docs">API</a>
+      </div>
+      <div>
+        <h4>Built with</h4>
+        <p>Wikipedia · Wikidata · DeBERTa-v3 (FEVER/ANLI) · MiniLM reranker · FastAPI</p>
+        <p class="muted">Engine {{ ENGINE }}</p>
+      </div>
+    </div>
+  </footer>
+
+  <div class="press" id="press" hidden aria-live="polite">
+    <div class="press-card">
+      <p class="kicker">On deadline</p>
+      <h2>Checking the record…</h2>
+      <ol class="press-steps">
+        <li>Reading the claim</li>
+        <li>Consulting Wikidata records</li>
+        <li>Searching Wikipedia</li>
+        <li>Ranking the most relevant passages</li>
+        <li>Weighing the evidence</li>
+      </ol>
+      <p class="muted">This usually takes 5–20 seconds.</p>
+    </div>
+  </div>
+  <script src="/static/app.js?v=5" defer></script>
+</body>
+</html>

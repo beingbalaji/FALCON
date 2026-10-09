@@ -1,0 +1,16 @@
+name: tests
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # The test suite is offline: Wikipedia, Wikidata and the models are faked,
+      # so torch/transformers are not needed here.
+      - run: pip install fastapi "uvicorn[standard]" jinja2 python-multipart requests beautifulsoup4 pytest httpx
+      - run: pytest -q

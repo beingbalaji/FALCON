@@ -1,0 +1,61 @@
+claim,label
+"The Eiffel Tower is located in Paris, France.",SUPPORTED
+Canberra is the capital of Australia.,SUPPORTED
+Mount Everest is the highest mountain above sea level.,SUPPORTED
+The Pacific Ocean is the largest ocean on Earth.,SUPPORTED
+Albert Einstein developed the theory of relativity.,SUPPORTED
+The Great Pyramid of Giza is located in Egypt.,SUPPORTED
+The Earth orbits the Sun.,SUPPORTED
+The Moon is Earth's natural satellite.,SUPPORTED
+Water is composed of hydrogen and oxygen.,SUPPORTED
+The human heart has four chambers.,SUPPORTED
+Jupiter is the largest planet in the Solar System.,SUPPORTED
+The Amazon River is located in South America.,SUPPORTED
+The Statue of Liberty is located in New York Harbor.,SUPPORTED
+William Shakespeare wrote Hamlet.,SUPPORTED
+"The Taj Mahal is located in Agra, India.",SUPPORTED
+Mars is commonly called the Red Planet.,SUPPORTED
+The Nile River flows through Egypt.,SUPPORTED
+Venus is the second planet from the Sun.,SUPPORTED
+The United Nations was founded in 1945.,SUPPORTED
+The Great Wall of China is located in China.,SUPPORTED
+The Eiffel Tower is located in London.,REFUTED
+Sydney is the capital of Australia.,REFUTED
+The Great Wall of China is located in Japan.,REFUTED
+The Sun revolves around the Earth.,REFUTED
+The Moon is a planet.,REFUTED
+Mars is the largest planet in the Solar System.,REFUTED
+The Taj Mahal is located in Mumbai.,REFUTED
+Albert Einstein wrote Hamlet.,REFUTED
+The Pacific Ocean is the smallest ocean on Earth.,REFUTED
+The human heart has two chambers.,REFUTED
+Jupiter is closer to the Sun than Mercury.,REFUTED
+The Statue of Liberty is located in Los Angeles.,REFUTED
+Mount Everest is located in Australia.,REFUTED
+Venus is the farthest planet from the Sun.,REFUTED
+The Great Pyramid of Giza is located in Italy.,REFUTED
+The Nile River flows only through South America.,REFUTED
+The United Nations was founded in 1800.,REFUTED
+Earth is the largest planet in the Solar System.,REFUTED
+William Shakespeare developed the theory of relativity.,REFUTED
+The Amazon River is located entirely in Europe.,REFUTED
+The Eiffel Tower was originally inspired by a dream Gustave Eiffel had about a mountain.,NOT ENOUGH INFO
+The Great Wall of China was first proposed during a private dinner between two ancient generals.,NOT ENOUGH INFO
+Albert Einstein preferred blue notebooks when developing his scientific ideas.,NOT ENOUGH INFO
+Mount Everest was first named after a childhood friend of a surveyor.,NOT ENOUGH INFO
+The Taj Mahal originally had a secret underground library containing thousands of books.,NOT ENOUGH INFO
+William Shakespeare wrote his first draft of Hamlet while travelling on a ship.,NOT ENOUGH INFO
+The Statue of Liberty was originally planned to have a clock inside its crown.,NOT ENOUGH INFO
+Jupiter was the first planet observed by an ancient astronomer using a glass lens.,NOT ENOUGH INFO
+The Pacific Ocean received its name because its first explorers experienced exactly seven days of calm weather.,NOT ENOUGH INFO
+The Moon contains a hidden cave that was used by an ancient civilization.,NOT ENOUGH INFO
+The Amazon River was named after a specific tree growing beside its source.,NOT ENOUGH INFO
+Canberra was selected as Australia's capital because one politician won a coin toss.,NOT ENOUGH INFO
+The Great Pyramid of Giza originally contained a room used specifically for teaching astronomy.,NOT ENOUGH INFO
+Mars was called the Red Planet because an ancient ruler ordered it to be named after the color red.,NOT ENOUGH INFO
+The United Nations headquarters was originally intended to be built on an artificial island.,NOT ENOUGH INFO
+The human heart was first scientifically described during a secret medical experiment.,NOT ENOUGH INFO
+Venus received its current name after a competition among ancient astronomers.,NOT ENOUGH INFO
+The Nile River was given its modern name by a single Roman military commander.,NOT ENOUGH INFO
+Water was first identified as hydrogen and oxygen during an experiment performed on a ship.,NOT ENOUGH INFO
+Earth received its English name from one specific astronomer in the seventeenth century.,NOT ENOUGH INFO
