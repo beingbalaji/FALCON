@@ -4,7 +4,7 @@
 
 FALCON reconstructs the **Federated Analysis and Linguistic Correlation Network** research concept. It now retrieves evidence and runs a real pretrained natural-language inference model in the browser. Paste one English claim, inspect source passages, and see whether the model finds support, contradiction, a conflict, or insufficient evidence.
 
-> **Research beta:** Results describe a model's comparison with the retrieved text. They are not guaranteed truth verdicts. Retrieval can miss important context, sources can be outdated or incorrect, and the model can make mistakes. The end-to-end result below comes from a small hand-written test set and is not a general accuracy guarantee.
+> **Research beta:** Results describe a model's comparison with the retrieved text. They are not guaranteed truth verdicts. Retrieval can miss important context, sources can be outdated or incorrect, and the model can make mistakes. End-to-end results on 3,332 public benchmark claims are reported below; they describe this prototype, not a guarantee for any particular claim.
 
 ## Use it
 
@@ -48,32 +48,41 @@ Selecting live evidence search sends entity names to **Wikidata** for supported 
 
 Evidence reports stay in memory until you explicitly export them. The separate writing-cue dashboard stores only topic, cue count, word count, and time locally. It does not store submitted text. No third-party model API key is embedded in the frontend.
 
-## Evaluation (11 October 2026)
+## Evaluation
 
-The full live pipeline (structured check → Wikipedia retrieval → passage ranking → DeBERTa NLI → decision rule) was run on [`evaluation/falcon_eval.csv`](evaluation/falcon_eval.csv). The set has 60 hand-written claims: 20 true, 20 false, and 20 plausible-sounding but undocumented claims whose correct answer is *insufficient evidence*. The NLI model also passed the 9/9 diagnostic pairs in the same session.
+### Large-scale test: 3,332 claims from three public datasets (11 October 2026)
 
-| Metric | Result |
-|---|---|
-| **Overall accuracy (3 labels)** | **73.3%** (44 / 60) |
-| Macro F1 | 0.78 |
-| True claims → *Supported* | 10 / 20 |
-| False claims → *Contradicted* | 14 / 20 |
-| Undocumented claims → *Insufficient evidence* | **20 / 20** |
-| Precision when the system gives a verdict (Supported or Contradicted) | **92.3%** (24 / 26) |
-| *Conflicting evidence* outputs | 10 (all counted as wrong) |
+The deployed pipeline (structured check, then Wikipedia retrieval, passage ranking, DeBERTa NLI and the decision rule) was run unchanged on claims from three public fact-checking datasets with very different content:
 
-Per-class results: Supported P = 1.00 / R = 0.50 · Contradicted P = 0.88 / R = 0.70 · Insufficient P = 0.83 / R = 1.00.
+| Dataset | Claims | Content | Accuracy | Macro F1 |
+|---|---|---|---|---|
+| [FEVER](https://fever.ai/) (dev, balanced sample) | 1,500 | General knowledge from Wikipedia: people, films, sport, history, places, science | **47.5%** | 0.49 |
+| Climate-FEVER | 1,379 | Real claims about climate change collected online | 36.9% | 0.27 |
+| AVeriTeC (dev) | 453 | Real-world claims from news and social media checked by professional fact-checkers | 13.9% | 0.11 |
+| **All** | **3,332** | | **38.5%** | **0.36** |
 
-**What the errors show**
+Always answering "not enough info" would score 30.3% on the same claims, and random guessing among the three labels would score 33.3%. Two claims outside the app's 10–350 character input limit were excluded.
 
-- **The system is cautious, not reckless.** It never called a false claim *Supported*. Only 2 of 60 claims got the opposite verdict: *"Jupiter is the largest planet"* and *"The Nile flows through Egypt"* were marked *Contradicted*. Most misses were *Conflicting evidence* instead.
-- **Off-topic passages are the main source of conflicts.** For *"The Eiffel Tower is located in Paris, France"*, passages about the replicas in Paris, Texas and Paris, Tennessee were scored as contradicting. Similar off-topic passages came from *Taj Mahal Palace Hotel*, *Great Wall Marathon*, and *Mars (disambiguation)*. The model judges each passage correctly on its own terms, but the passage is about a different entity.
-- **Some refutations are right for the wrong reason.** For example, *"The United Nations was founded in 1800"* was contradicted by a passage about the 1800 US presidential election. A correct label does not always mean the correct evidence was used.
-- **The structured capital check returned *insufficient evidence* for both Canberra and Sydney** in this run, so the Wikidata path needs debugging.
+**What this shows**
 
-Per-claim results: [`evaluation/results_2026-10-11.csv`](evaluation/results_2026-10-11.csv). To reproduce, open the demo, open the browser console, and paste [`evaluation/run-eval.js`](evaluation/run-eval.js). Live retrieval changes as Wikipedia pages change, so results can vary between runs.
+- **Retrieval is the main bottleneck.** For 51% of claims (1,707), no Wikipedia passage passed the relevance filter, so the system could only answer "insufficient evidence". When evidence *was* found for a FEVER claim that has a true or false answer, accuracy rose to 54.5%.
+- **"Supported" verdicts are reliable; "Contradicted" verdicts are not yet.** When FALCON says *Supported*, it is right **81.6%** of the time. *Contradicted* is right only 49.9% of the time, because the NLI model treats passages about related but different entities as contradictions. This is the same failure seen with the Eiffel Tower replicas.
+- **FALCON is cautious.** It gave a definite verdict on only 841 claims (25%) and recalled 78% of genuinely unverifiable claims, but it misses many true claims (recall 15.7% for *Supported*).
+- **The content gap is large.** FEVER claims were written from Wikipedia, so FALCON does best there. Climate claims and real-world news claims usually need evidence from scientific reports, news articles or official statements, which a search of Wikipedia article introductions rarely finds. AVeriTeC in particular is designed for open-web retrieval.
 
-**Next steps suggested by these results:** entity-aware filtering of passages (drop pages about a different entity with the same name), weighting passages by how relevant they are instead of letting any single strong passage create a conflict, and fixing the structured capital lookup.
+For context, the original FEVER baseline (Thorne et al., 2018), which used a full Wikipedia dump and a model trained on FEVER, reported label accuracy of roughly 50%. FALCON reaches 47.5% on FEVER with live API retrieval and an off-the-shelf NLI model that was never trained on FEVER, running in a browser.
+
+Files: [`evaluation/large/results.csv`](evaluation/large/results.csv) (every claim with gold label, prediction and top source), [`evaluation/large/summary.json`](evaluation/large/summary.json) (all metrics and confusion matrices) and [`evaluation/large/run-large-eval.js`](evaluation/large/run-large-eval.js) (paste into the browser console on the demo to reproduce). Live Wikipedia content changes over time, so a rerun can differ slightly.
+
+**Priorities suggested by these results:** better retrieval (full article text instead of introductions, query rewriting, more than four pages, sources beyond Wikipedia), entity checks before a passage may count as contradicting, and fine-tuning or calibrating the NLI decision on FEVER-style evidence pairs.
+
+### Small hand-written smoke test (60 claims)
+
+[`evaluation/falcon_eval.csv`](evaluation/falcon_eval.csv) contains 60 simple, well-known claims (20 true, 20 false, 20 undocumented). FALCON scored 73.3% on them (44/60) and correctly abstained on all 20 undocumented claims. These claims are much easier than the public datasets above, so this figure should not be read as general accuracy. Per-claim results: [`evaluation/results_2026-10-11.csv`](evaluation/results_2026-10-11.csv); script: [`evaluation/run-eval.js`](evaluation/run-eval.js).
+
+### Dataset credits
+
+FEVER (Thorne et al., NAACL 2018; CC BY-SA 3.0), Climate-FEVER (Diggelmann et al., 2020) and AVeriTeC (Schlichtkrull et al., NeurIPS 2023; CC BY-NC 4.0). Claims and labels are reproduced in `evaluation/large/results.csv` for research evaluation only, under each dataset's license.
 
 ## Method and limitations
 
@@ -103,7 +112,7 @@ See [MODEL_CARD.md](MODEL_CARD.md) for model provenance, evaluation status, and 
 | `analysis.js`, `app.js` | Separate writing-cue analysis and local summary dashboard |
 | `server.js` | Optional static server and writing-cue API |
 | `tests.js` | API, evidence decision, failure, conflict, and retrieval adapter checks |
-| `evaluation/` | 60-claim test set, evaluation script, and per-claim results |
+| `evaluation/` | Benchmark results (3,332 claims), the 60-claim smoke test, and evaluation scripts |
 
 ## Reconstruction provenance
 

@@ -1,0 +1,202 @@
+{
+ "ALL": {
+  "claims": 3332,
+  "accuracy": 0.3854,
+  "macro_f1": 0.3627,
+  "decisive_answers": 841,
+  "decisive_precision": 0.591,
+  "conflicting": 110,
+  "opposite_verdicts": 138,
+  "no_evidence_retrieved": 1707,
+  "always_predict_nei_baseline": 0.3025,
+  "per_class": {
+   "SUPPORTED": {
+    "precision": 0.8156,
+    "recall": 0.1571,
+    "f1": 0.2634,
+    "support": 1267
+   },
+   "REFUTED": {
+    "precision": 0.4992,
+    "recall": 0.2819,
+    "f1": 0.3603,
+    "support": 1057
+   },
+   "NOT ENOUGH INFO": {
+    "precision": 0.3305,
+    "recall": 0.7808,
+    "f1": 0.4644,
+    "support": 1008
+   }
+  },
+  "confusion": {
+   "SUPPORTED": {
+    "REFUTED": 123,
+    "SUPPORTED": 199,
+    "NOT ENOUGH INFO": 864,
+    "CONFLICT": 81
+   },
+   "REFUTED": {
+    "NOT ENOUGH INFO": 730,
+    "REFUTED": 298,
+    "CONFLICT": 14,
+    "SUPPORTED": 15
+   },
+   "NOT ENOUGH INFO": {
+    "NOT ENOUGH INFO": 787,
+    "REFUTED": 176,
+    "SUPPORTED": 30,
+    "CONFLICT": 15
+   }
+  }
+ },
+ "FEVER": {
+  "claims": 1500,
+  "accuracy": 0.4747,
+  "macro_f1": 0.4943,
+  "decisive_answers": 697,
+  "decisive_precision": 0.5954,
+  "conflicting": 106,
+  "opposite_verdicts": 94,
+  "no_evidence_retrieved": 406,
+  "always_predict_nei_baseline": 0.3333,
+  "per_class": {
+   "SUPPORTED": {
+    "precision": 0.8151,
+    "recall": 0.388,
+    "f1": 0.5257,
+    "support": 500
+   },
+   "REFUTED": {
+    "precision": 0.4815,
+    "recall": 0.442,
+    "f1": 0.4609,
+    "support": 500
+   },
+   "NOT ENOUGH INFO": {
+    "precision": 0.4261,
+    "recall": 0.594,
+    "f1": 0.4962,
+    "support": 500
+   }
+  },
+  "confusion": {
+   "SUPPORTED": {
+    "REFUTED": 80,
+    "SUPPORTED": 194,
+    "CONFLICT": 77,
+    "NOT ENOUGH INFO": 149
+   },
+   "REFUTED": {
+    "REFUTED": 221,
+    "NOT ENOUGH INFO": 251,
+    "CONFLICT": 14,
+    "SUPPORTED": 14
+   },
+   "NOT ENOUGH INFO": {
+    "NOT ENOUGH INFO": 297,
+    "REFUTED": 158,
+    "SUPPORTED": 30,
+    "CONFLICT": 15
+   }
+  }
+ },
+ "Climate-FEVER": {
+  "claims": 1379,
+  "accuracy": 0.3691,
+  "macro_f1": 0.2706,
+  "decisive_answers": 102,
+  "decisive_precision": 0.5196,
+  "conflicting": 2,
+  "opposite_verdicts": 31,
+  "no_evidence_retrieved": 1004,
+  "always_predict_nei_baseline": 0.3437,
+  "per_class": {
+   "SUPPORTED": {
+    "precision": 1.0,
+    "recall": 0.0077,
+    "f1": 0.0152,
+    "support": 653
+   },
+   "REFUTED": {
+    "precision": 0.4948,
+    "recall": 0.1905,
+    "f1": 0.2751,
+    "support": 252
+   },
+   "NOT ENOUGH INFO": {
+    "precision": 0.3576,
+    "recall": 0.962,
+    "f1": 0.5214,
+    "support": 474
+   }
+  },
+  "confusion": {
+   "SUPPORTED": {
+    "NOT ENOUGH INFO": 615,
+    "REFUTED": 31,
+    "CONFLICT": 2,
+    "SUPPORTED": 5
+   },
+   "REFUTED": {
+    "NOT ENOUGH INFO": 204,
+    "REFUTED": 48
+   },
+   "NOT ENOUGH INFO": {
+    "NOT ENOUGH INFO": 456,
+    "REFUTED": 18
+   }
+  }
+ },
+ "AVeriTeC": {
+  "claims": 453,
+  "accuracy": 0.1391,
+  "macro_f1": 0.107,
+  "decisive_answers": 42,
+  "decisive_precision": 0.6905,
+  "conflicting": 2,
+  "opposite_verdicts": 13,
+  "no_evidence_retrieved": 297,
+  "always_predict_nei_baseline": 0.0751,
+  "per_class": {
+   "SUPPORTED": {
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0,
+    "support": 114
+   },
+   "REFUTED": {
+    "precision": 0.7073,
+    "recall": 0.0951,
+    "f1": 0.1676,
+    "support": 305
+   },
+   "NOT ENOUGH INFO": {
+    "precision": 0.0831,
+    "recall": 1.0,
+    "f1": 0.1535,
+    "support": 34
+   }
+  },
+  "confusion": {
+   "SUPPORTED": {
+    "NOT ENOUGH INFO": 100,
+    "REFUTED": 12,
+    "CONFLICT": 2
+   },
+   "REFUTED": {
+    "NOT ENOUGH INFO": 275,
+    "REFUTED": 29,
+    "SUPPORTED": 1
+   },
+   "NOT ENOUGH INFO": {
+    "NOT ENOUGH INFO": 34
+   }
+  }
+ },
+ "_meta": {
+  "run_date": "2026-10-11",
+  "pipeline": "live deployed app (structured check, Wikipedia retrieval, Xenova/nli-deberta-v3-xsmall q8)",
+  "excluded": "2 claims rejected by the 10-350 character input validator"
+ }
+}
