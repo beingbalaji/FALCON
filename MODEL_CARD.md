@@ -14,11 +14,15 @@ No new FALCON-specific weights have been trained. The application reuses an exis
 
 ## Evaluation status
 
-Eight local software tests cover writing-cue behavior, validation, HTTP handling, fail-closed evidence decisions, conflicting sources, relevance, and citation metadata. These tests use controlled inputs and mocked source responses; they do not measure live factual accuracy.
+Nine local software tests cover writing-cue behavior, validation, HTTP handling, fail-closed evidence decisions, conflicting sources, relevance, and citation metadata. These tests use controlled inputs and mocked source responses; they do not measure live factual accuracy.
 
 `diagnostics.json` contains nine small hand-written sentence pairs for support, negation, wrong entities/dates, and missing information. Run **Model details and diagnostic checks → Run model diagnostics** in the app to execute the real model. The result can be exported. This fixed set is not a held-out research benchmark, and passing it is not a general accuracy estimate.
 
-On 28 September 2026, the deployed model ran successfully and classified all 9 diagnostic pairs as expected. Live Wikipedia retrieval also worked. However, a live “Sydney is the capital of Australia” test incorrectly predicted support from state-capital passages and produced a conflict overall. This observed scope-confusion failure is preserved in `live-model-observation.txt`. Capital and head-of-government claims in the supported grammar now use a separate structured entity comparison rather than this model. Structured checks are being validated independently. Do not infer a percentage for FALCON from upstream SNLI/MultiNLI scores: those tasks and datasets differ from end-to-end retrieval and fact verification.
+On 28 September 2026, the deployed model ran successfully and classified all 9 diagnostic pairs as expected. Live Wikipedia retrieval also worked. However, a live “Sydney is the capital of Australia” test incorrectly predicted support from state-capital passages and produced a conflict overall. This observed scope-confusion failure is preserved in `live-model-observation.txt`. Capital and head-of-government claims in the supported grammar now use a separate structured entity comparison rather than this model. Structured checks are being validated independently.
+
+On 11 October 2026, the full live pipeline was evaluated on 60 hand-written claims (`evaluation/falcon_eval.csv`; 20 supported, 20 refuted, 20 not-enough-info). It reached 73.3% accuracy and 0.78 macro F1, with 92.3% precision on decisive verdicts (24/26), 20/20 correct abstentions, and 10 conflicting-evidence outputs. Both structured capital claims returned insufficient evidence in that run. This set is small, hand-written, and drawn from well-known facts, so it is not a representative benchmark. See the README evaluation section and `evaluation/results_2026-10-11.csv`.
+
+Do not infer a percentage for FALCON from upstream SNLI/MultiNLI scores: those tasks and datasets differ from end-to-end retrieval and fact verification.
 
 ## What training from more sources requires
 

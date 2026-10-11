@@ -39,7 +39,7 @@ test('local server serves the app and analysis API without secrets or external d
   assert.equal(html.status, 200);
   const markup = await html.text();
   assert.match(markup, /FALCON · Claim Review Lab/);
-  assert.match(markup, /app\.js\?v=6/);
+  assert.match(markup, /app\.js\?v=\d+/);
   const css = await fetch(base + '/style.css');
   assert.equal(css.status, 200);
   const response = await fetch(base + '/api/analyze', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({text: 'This city news article discusses a scheduled vote by the council on Friday.'})});

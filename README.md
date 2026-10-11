@@ -4,7 +4,7 @@
 
 FALCON reconstructs the **Federated Analysis and Linguistic Correlation Network** research concept. It now retrieves evidence and runs a real pretrained natural-language inference model in the browser. Paste one English claim, inspect source passages, and see whether the model finds support, contradiction, a conflict, or insufficient evidence.
 
-> **Research beta:** Results describe a model's comparison with the retrieved text. They are not guaranteed truth verdicts. Retrieval can miss important context, sources can be outdated or incorrect, and the model can make mistakes. There is no measured end-to-end fact-checking accuracy claim.
+> **Research beta:** Results describe a model's comparison with the retrieved text. They are not guaranteed truth verdicts. Retrieval can miss important context, sources can be outdated or incorrect, and the model can make mistakes. The end-to-end result below comes from a small hand-written test set and is not a general accuracy guarantee.
 
 ## Use it
 
@@ -48,6 +48,33 @@ Selecting live evidence search sends entity names to **Wikidata** for supported 
 
 Evidence reports stay in memory until you explicitly export them. The separate writing-cue dashboard stores only topic, cue count, word count, and time locally. It does not store submitted text. No third-party model API key is embedded in the frontend.
 
+## Evaluation (11 October 2026)
+
+The full live pipeline (structured check → Wikipedia retrieval → passage ranking → DeBERTa NLI → decision rule) was run on [`evaluation/falcon_eval.csv`](evaluation/falcon_eval.csv). The set has 60 hand-written claims: 20 true, 20 false, and 20 plausible-sounding but undocumented claims whose correct answer is *insufficient evidence*. The NLI model also passed the 9/9 diagnostic pairs in the same session.
+
+| Metric | Result |
+|---|---|
+| **Overall accuracy (3 labels)** | **73.3%** (44 / 60) |
+| Macro F1 | 0.78 |
+| True claims → *Supported* | 10 / 20 |
+| False claims → *Contradicted* | 14 / 20 |
+| Undocumented claims → *Insufficient evidence* | **20 / 20** |
+| Precision when the system gives a verdict (Supported or Contradicted) | **92.3%** (24 / 26) |
+| *Conflicting evidence* outputs | 10 (all counted as wrong) |
+
+Per-class results: Supported P = 1.00 / R = 0.50 · Contradicted P = 0.88 / R = 0.70 · Insufficient P = 0.83 / R = 1.00.
+
+**What the errors show**
+
+- **The system is cautious, not reckless.** It never called a false claim *Supported*. Only 2 of 60 claims got the opposite verdict: *"Jupiter is the largest planet"* and *"The Nile flows through Egypt"* were marked *Contradicted*. Most misses were *Conflicting evidence* instead.
+- **Off-topic passages are the main source of conflicts.** For *"The Eiffel Tower is located in Paris, France"*, passages about the replicas in Paris, Texas and Paris, Tennessee were scored as contradicting. Similar off-topic passages came from *Taj Mahal Palace Hotel*, *Great Wall Marathon*, and *Mars (disambiguation)*. The model judges each passage correctly on its own terms, but the passage is about a different entity.
+- **Some refutations are right for the wrong reason.** For example, *"The United Nations was founded in 1800"* was contradicted by a passage about the 1800 US presidential election. A correct label does not always mean the correct evidence was used.
+- **The structured capital check returned *insufficient evidence* for both Canberra and Sydney** in this run, so the Wikidata path needs debugging.
+
+Per-claim results: [`evaluation/results_2026-10-11.csv`](evaluation/results_2026-10-11.csv). To reproduce, open the demo, open the browser console, and paste [`evaluation/run-eval.js`](evaluation/run-eval.js). Live retrieval changes as Wikipedia pages change, so results can vary between runs.
+
+**Next steps suggested by these results:** entity-aware filtering of passages (drop pages about a different entity with the same name), weighting passages by how relevant they are instead of letting any single strong passage create a conflict, and fixing the structured capital lookup.
+
 ## Method and limitations
 
 Structured matching supports a deliberately narrow English grammar and does not use the NLI model to override missing or ambiguous records. A different recorded entity yields contradiction only for one referenced current value (and preferred rank for an officeholder). Multiple values can support an exact match but cannot establish absence. Wikidata and Wikipedia are related community-maintained sources, not independent corroboration.
@@ -76,6 +103,7 @@ See [MODEL_CARD.md](MODEL_CARD.md) for model provenance, evaluation status, and 
 | `analysis.js`, `app.js` | Separate writing-cue analysis and local summary dashboard |
 | `server.js` | Optional static server and writing-cue API |
 | `tests.js` | API, evidence decision, failure, conflict, and retrieval adapter checks |
+| `evaluation/` | 60-claim test set, evaluation script, and per-claim results |
 
 ## Reconstruction provenance
 
